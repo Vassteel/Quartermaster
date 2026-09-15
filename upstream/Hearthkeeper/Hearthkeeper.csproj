@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Hearthkeeper</AssemblyName>
+    <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+  <PropertyGroup>
+    <LangVersion>12.0</LangVersion>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <PropertyGroup />
+  <ItemGroup />
+  <ItemGroup>
+    <Reference Include="assembly_valheim">
+      <HintPath>../../../../../../../../tmp/hearthward-refs/assembly_valheim.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>../../../../../../../../tmp/hearthward-refs/UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>../../../../../../../../tmp/hearthward-refs/0Harmony.dll</HintPath>
+    </Reference>
+    <Reference Include="BepInEx">
+      <HintPath>../../../../../../../../tmp/hearthward-refs/BepInEx.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.IMGUIModule">
+      <HintPath>../../../../../../../../tmp/hearthward-refs/UnityEngine.IMGUIModule.dll</HintPath>
+    </Reference>
+    <Reference Include="assembly_utils">
+      <HintPath>../../../../../../../../tmp/hearthward-refs/assembly_utils.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>../../../../../../../../tmp/hearthward-refs/UnityEngine.TextRenderingModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>../../../../../../../../tmp/hearthward-refs/UnityEngine.InputLegacyModule.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>
