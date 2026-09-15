@@ -12,6 +12,10 @@ public sealed class ChestVisual : MonoBehaviour
     private Material material;
     private Material runeMaterial;
     private Mesh runeMesh;
+    private Material haloMaterial;
+    private Texture2D haloTexture;
+    private Mesh runeHaloMesh;
+    private Light[] ornamentLights;
     private GameObject receiptEffect;
     private LineRenderer receiptOutline;
     private Bounds chestBounds;
@@ -47,6 +51,14 @@ public sealed class ChestVisual : MonoBehaviour
         Color color = blocked ? new Color(1f, .43f, .08f, .9f) : new Color(.22f, .85f, 1f, .9f);
         if (Time.time < pulseUntil) color *= 1.3f + .25f * Mathf.Sin(Time.time * 9);
         if (runeMaterial) runeMaterial.color = color;
+        if (haloMaterial) haloMaterial.color = new Color(color.r, color.g, color.b, .28f);
+        bool near = Player.m_localPlayer && (Player.m_localPlayer.transform.position - transform.position).sqrMagnitude < 625f;
+        foreach (var light in ornamentLights)
+        {
+            light.enabled = near;
+            light.color = color;
+            light.intensity = Time.time < pulseUntil ? .4f : .28f;
+        }
         for (int i = 0; i < gears.Length; i++)
         {
             gears[i].startColor = gears[i].endColor = color;
@@ -59,6 +71,7 @@ public sealed class ChestVisual : MonoBehaviour
         bool found = false; Bounds bounds = new Bounds();
         foreach (var r in GetComponentsInChildren<MeshRenderer>(true))
         {
+            if (chest.m_open && r.transform.IsChildOf(chest.m_open.transform)) continue;
             if (!r.GetComponent<MeshFilter>() || !r.GetComponent<MeshFilter>().sharedMesh) continue;
             var local = r.GetComponent<MeshFilter>().sharedMesh.bounds;
             for (int i = 0; i < 8; i++)
@@ -109,10 +122,24 @@ public sealed class ChestVisual : MonoBehaviour
     private void Create()
     {
         var bounds = MeasureChest();
+        DepositGull.Attach(chest, bounds);
         ornament = new GameObject("Quartermaster_DepositGears"); ornament.transform.SetParent(transform, false);
         // Decorate both long faces so orientation and chest variants remain readable.
         gears = new LineRenderer[4];
         EnsureMaterial();
+        // A feathered cross-section creates a soft halo even with bloom disabled.
+        haloTexture = new Texture2D(1, 64, TextureFormat.RGBA32, false);
+        haloTexture.name = "Quartermaster_SoftGlow";
+        haloTexture.wrapMode = TextureWrapMode.Clamp; haloTexture.filterMode = FilterMode.Bilinear;
+        var pixels = new Color[64];
+        for (int y = 0; y < pixels.Length; y++)
+        {
+            float distance = Mathf.Abs(y / 63f * 2f - 1f);
+            float alpha = Mathf.Pow(1f - distance * distance, 3f);
+            pixels[y] = new Color(1f, 1f, 1f, alpha);
+        }
+        haloTexture.SetPixels(pixels); haloTexture.Apply(false, true);
+        haloMaterial = new Material(material) { mainTexture = haloTexture };
         float radius = Mathf.Clamp(Mathf.Min(bounds.size.x * .15f, bounds.size.y * .2f), .045f, .22f);
         for (int i = 0; i < gears.Length; i++)
         {
@@ -128,9 +155,20 @@ public sealed class ChestVisual : MonoBehaviour
                 line.SetPosition(j, new Vector3(Mathf.Cos(a) * r, Mathf.Sin(a) * r, 0));
             }
             gears[i] = line;
+            line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            line.receiveShadows = false;
+            var glow = new GameObject("GearSoftGlow"); glow.transform.SetParent(go.transform, false);
+            var halo = glow.AddComponent<LineRenderer>();
+            halo.sharedMaterial = haloMaterial; halo.useWorldSpace = false; halo.loop = true;
+            halo.widthMultiplier = .045f; halo.positionCount = line.positionCount; halo.numCornerVertices = 3;
+            for (int j = 0; j < line.positionCount; j++) halo.SetPosition(j, line.GetPosition(j));
+            halo.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            halo.receiveShadows = false;
         }
         runeMaterial = new Material(material);
         runeMesh = RuneInscription.CreateMesh();
+        runeHaloMesh = RuneInscription.CreateMesh(true);
+        ornamentLights = new Light[2];
         float height = Mathf.Min(bounds.size.y * .16f, bounds.size.x * .82f / RuneInscription.Width);
         for (int face = 0; face < 2; face++)
         {
@@ -146,6 +184,19 @@ public sealed class ChestVisual : MonoBehaviour
             renderer.sharedMaterial = runeMaterial;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
+            var glow = new GameObject("InscriptionSoftGlow"); glow.transform.SetParent(go.transform, false);
+            glow.AddComponent<MeshFilter>().sharedMesh = runeHaloMesh;
+            var glowRenderer = glow.AddComponent<MeshRenderer>(); glowRenderer.sharedMaterial = haloMaterial;
+            glowRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            glowRenderer.receiveShadows = false;
+            var spill = new GameObject("RunicIllumination"); spill.transform.SetParent(ornament.transform, false);
+            spill.transform.localPosition = new Vector3(bounds.center.x, bounds.min.y + bounds.size.y * .4f,
+                face == 0 ? bounds.min.z - .15f : bounds.max.z + .15f);
+            var light = spill.AddComponent<Light>(); light.type = LightType.Point;
+            light.range = Mathf.Clamp(bounds.size.magnitude * .8f, .8f, 2.3f);
+            light.intensity = .28f; light.shadows = LightShadows.None;
+            light.renderMode = LightRenderMode.Auto;
+            ornamentLights[face] = light;
         }
     }
     private void OnDestroy()
@@ -153,6 +204,9 @@ public sealed class ChestVisual : MonoBehaviour
         if (material) Destroy(material);
         if (runeMaterial) Destroy(runeMaterial);
         if (runeMesh) Destroy(runeMesh);
+        if (runeHaloMesh) Destroy(runeHaloMesh);
+        if (haloMaterial) Destroy(haloMaterial);
+        if (haloTexture) Destroy(haloTexture);
         if (ornament) Destroy(ornament);
         if (receiptEffect) Destroy(receiptEffect);
         if (chest) ContainerRegistry.Unregister(chest);

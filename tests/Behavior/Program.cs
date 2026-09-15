@@ -103,4 +103,7 @@ for(int trial=0;trial<1000;trial++)
     }
 }
 StationTests.Run(Assert);
+ItemTagTests.Run(Assert);
+GullTests.Run(Assert);
+SlotSortingTests.Run(Assert);
 Console.WriteLine($"PASS: {checks} assertions; station coverage, learned storage, forgotten-item persistence, routing exclusions, production cap scenarios, metadata preservation, callbacks and 1000 randomized inventory trials.");

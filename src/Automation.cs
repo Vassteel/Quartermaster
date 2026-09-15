@@ -139,16 +139,13 @@ internal static class Automation
         if (s.Deposit)
         {
             if (n == null || !n.Controls) { SetStatus(c, "Waiting for base network owner"); return; }
-            int total = 0; string blocked = "";
-            foreach (var item in c.GetInventory().GetAllItems().ToArray())
-            {
-                int before = item.m_stack;
-                int moved = Route(n, item, before, c.transform.position, c.GetInventory(), c);
-                total += moved;
-                if (moved < before)
-                    blocked = (Destinations(n, item, c.transform.position, c).Count == 0 ? "No destination: " : "Storage full or busy: ") + Label(item);
-            }
-            SetStatus(c, blocked.Length > 0 ? blocked : total > 0 ? "Sorted " + total + " items" : "Ready for deposits");
+            if (!DepositGull.ReadyForNextSlot(c)) return;
+            var sorted = DepositSorting.OneSlot(c.GetInventory().GetAllItems(),
+                (item, count) => Route(n, item, count, c.transform.position, c.GetInventory(), c));
+            string blocked = sorted.BlockedItem == null ? "" :
+                (Destinations(n, sorted.BlockedItem, c.transform.position, c).Count == 0 ? "No destination: " : "Storage full or busy: ") + Label(sorted.BlockedItem);
+            SetStatus(c, sorted.Moved > 0 ? "Sorted one slot · " + sorted.Moved + " items" : blocked.Length > 0 ? blocked : "Ready for deposits");
+            DepositGull.Report(c, sorted.Moved, blocked.Length > 0, sorted.Item);
         }
         if (s.AutoSort)
         {

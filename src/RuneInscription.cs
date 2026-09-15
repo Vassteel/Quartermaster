@@ -25,7 +25,7 @@ internal static class RuneInscription
         ['ᚺ'] = new[] { new[] { 0f, 0f, 0f, 1f }, new[] { .65f, 0f, .65f, 1f }, new[] { 0f, .72f, .65f, .35f } }
     };
 
-    internal static Mesh CreateMesh()
+    internal static Mesh CreateMesh(bool halo = false)
     {
         var vertices = new List<Vector3>();
         var triangles = new List<int>();
@@ -41,9 +41,10 @@ internal static class RuneInscription
                         var a = new Vector3(x + stroke[j], stroke[j + 1], 0);
                         var b = new Vector3(x + stroke[j + 2], stroke[j + 3], 0);
                         var direction = (b - a).normalized;
-                        var side = new Vector3(-direction.y, direction.x, 0) * .034f;
+                        var side = new Vector3(-direction.y, direction.x, 0) * (halo ? .18f : .034f);
                         // Slightly overlapping ends avoid hairline gaps at angular joins.
-                        a -= direction * .017f; b += direction * .017f;
+                        float overlap = halo ? .06f : .017f;
+                        a -= direction * overlap; b += direction * overlap;
                         int start = vertices.Count;
                         vertices.Add(a - side); vertices.Add(a + side);
                         vertices.Add(b + side); vertices.Add(b - side);
@@ -54,13 +55,17 @@ internal static class RuneInscription
             }
             x += Advance;
         }
-        var mesh = new Mesh { name = "Quartermaster_DepositRunes" };
+        var mesh = new Mesh { name = halo ? "Quartermaster_DepositRunesHalo" : "Quartermaster_DepositRunes" };
         mesh.SetVertices(vertices);
         mesh.SetTriangles(triangles, 0);
         // Sprites/Default multiplies its tint by the vertex colors and sampled texture.
         var colors = new Color[vertices.Count];
         var uv = new Vector2[vertices.Count];
-        for (int i = 0; i < colors.Length; i++) { colors[i] = Color.white; uv[i] = new Vector2(.5f, .5f); }
+        for (int i = 0; i < colors.Length; i++)
+        {
+            colors[i] = Color.white;
+            uv[i] = new Vector2(.5f, halo ? (i % 4 == 0 || i % 4 == 3 ? 0f : 1f) : .5f);
+        }
         mesh.colors = colors; mesh.uv = uv;
         mesh.RecalculateBounds();
         return mesh;

@@ -4,7 +4,7 @@ using System.Reflection;
 public sealed class Prefab { public string name; public static implicit operator bool(Prefab p) => p != null; }
 public struct Vector2i { public int x, y; public Vector2i(int x, int y) { this.x=x; this.y=y; } }
 public static class Game { public static int m_worldLevel; }
-public sealed class Container : UnityEngine.MonoBehaviour { public Inventory Inventory; public bool Accessible = true; public Quartermaster.ChestSettings Settings = new(); }
+public sealed class Container : UnityEngine.MonoBehaviour { public Inventory Inventory; public bool Accessible = true, Owned = true, InUse; public Quartermaster.ChestSettings Settings = new(); }
 public class ItemDrop
 {
     public Prefab gameObject;
@@ -47,13 +47,15 @@ namespace Quartermaster
         internal static int ReserveFor(Container c,string name)=>0;
         internal static bool Accessible(Container c)=>c.Accessible;
         internal static ChestSettings GetSettings(Container c)=>c.Settings;
+        internal static Container OwnerOf(Inventory inventory)=>All.FirstOrDefault(c=>c.Inventory==inventory);
+        internal static bool IsUsable(Container c,bool allowInUse)=>Accessible(c)&&c.Owned&&!c.InUse;
     }
     internal sealed class TestLog { public void LogError(string s)=>throw new Exception(s); public void LogWarning(string s)=>throw new Exception(s); }
     internal sealed class TestSetting<T> { internal T Value; internal TestSetting(T value) { Value=value; } }
     internal static class Plugin
     {
         internal static TestLog Log=new();
-        internal static TestSetting<bool> Enabled=new(true), ExtendStationCoverage=new(true);
+        internal static TestSetting<bool> Enabled=new(true), ExtendStationCoverage=new(true), ClearCheatItemTagsOnLoad=new(true);
         internal static TestSetting<float> Range=new(100f);
     }
 }

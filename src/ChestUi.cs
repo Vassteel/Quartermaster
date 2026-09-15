@@ -38,8 +38,8 @@ internal static class ChestUi
         dockCanvas = (RectTransform)gui.m_player.GetComponentInParent<Canvas>().transform;
         dock = Rect("Quartermaster_Actions", dockCanvas, 0, 12, 760, 50).gameObject;
         var dockRect = (RectTransform)dock.transform;
-        dockRect.anchorMin = dockRect.anchorMax = dockRect.pivot = new Vector2(.5f, 0);
-        dockRect.anchoredPosition = new Vector2(0, 12);
+        dockRect.anchorMin = dockRect.anchorMax = dockRect.pivot = new Vector2(0, 0);
+        dockRect.anchoredPosition = new Vector2(16, 12);
         dock.AddComponent<Image>().color = new Color(.055f, .07f, .075f, .98f);
         var outline = dock.AddComponent<Outline>(); outline.effectColor = Gold; outline.effectDistance = new Vector2(1, -1);
         dockButtons.Add(Button(dock.transform, "Chest Config", 0, -6, dockWidths[0], () => OpenChest(Plugin.OpenContainer), false));
@@ -73,9 +73,9 @@ internal static class ChestUi
         }
         var rect = (RectTransform)dock.transform;
         rect.sizeDelta = new Vector2(x, 50);
-        // Use canvas bounds instead of inventory-panel offsets: chest grids can grow,
-        // and the small gap between player inventory and chest is already occupied.
-        rect.localScale = Vector3.one * Mathf.Min(1f, Mathf.Max(.1f, (dockCanvas.rect.width - 24) / x));
+        // Keep the action bar in the left part of the screen, clear of the
+        // inventory's bottom-centre/right mouse and controller prompts.
+        rect.localScale = Vector3.one * Mathf.Min(1f, Mathf.Max(.1f, (dockCanvas.rect.width * .28f - 32) / x));
     }
     private static void DepositAll()
     {

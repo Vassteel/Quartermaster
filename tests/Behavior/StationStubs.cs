@@ -24,7 +24,7 @@ namespace UnityEngine
 public class CraftingStation : UnityEngine.MonoBehaviour { public string m_name; }
 public class Piece : UnityEngine.Object { }
 public class ZNetView : UnityEngine.Object { public bool Valid=true; public bool IsValid()=>Valid; }
-public class Player : UnityEngine.Object { public static Player m_localPlayer=new(); }
+public class Player : UnityEngine.Object { public static Player m_localPlayer=new(); public Inventory Inventory=new(8,4); public Inventory GetInventory()=>Inventory; }
 public static class PrivateArea
 {
     public static Func<UnityEngine.Vector3,bool> Access=_=>true;

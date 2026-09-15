@@ -1,3 +1,43 @@
+# Local update — Quartermaster 0.1.10
+
+Installed on 2026-09-14 with Valheim and r2modman closed. All 18 updated paths verified in the game folder, Mods profile, cache and Downloads. The old 0.1.9 Downloads package was removed.
+
+Deposit sorting now transfers at most one occupied slot (its stack) per cycle, normally every two seconds. It skips blocked slots and preserves partial remainders. A successful slot queues three spaced cosmetic throws regardless of item count; visible sorting waits for those attempts to finish. Hidden/missing cosmetics do not stall automation.
+
+Zero build warnings/errors; 28,742 behavior assertions pass; 436 binary members, 42 hooks and 18 reflection targets verified. In-game sequential sorting/throw-count acceptance remains pending.
+
+DLL SHA256: `709c55f26575264c6a0c852b228798c39757312d2c7e8728d34dd4a5c7fe0caf`
+Backup: `/home/deck/Documents/ChatGPT/Valheim mods/Quartermaster/backups/update-0.1.10-20260914-233240`
+
+---
+
+# Local update — Quartermaster 0.1.9
+
+Installed on 2026-09-14 after confirming Valheim and r2modman were closed. Game installation, Mods profile, cache and Downloads updated; all 18 changed paths verified byte-for-byte. Previous 0.1.8 Downloads package removed.
+
+Fixes the floating/glowing Deposit gull: visible-lid geometry determines the perch, lowest foot vertices determine the model offset, and an independently followed actor avoids WildGlow’s recursive chest emission. Private non-emissive bird materials receive normal shadows. The perch is recalculated when the lid opens/closes; the chest retains ownership of cleanup.
+
+Validation: zero build warnings/errors; 28,725 behavior assertions; 436 binary members, 42 hooks and 18 reflection targets checked. In-game contact and lighting verification remain pending.
+
+DLL SHA256: `d0ea096cec6a5cc0491dfe8572cd241f7c2ecea4d74c823818fa1190d69c54dd`
+Backup: `/home/deck/Documents/ChatGPT/Valheim mods/Quartermaster/backups/update-0.1.9-20260914-232253`
+
+---
+
+# Local update — Quartermaster 0.1.8
+
+Installed on 2026-09-14 with Valheim and r2modman closed. The Steam game installation, r2modman Mods profile, current-version cache and Downloads package were updated and verified across 22 paths. Existing config and unrelated manager entries were preserved. Old Downloads package 0.1.7 was removed.
+
+Includes the helmeted Deposit gull and sorting/blocked/idle states, short-lived mesh-only tosses, plus the previously packaged station coverage and light-spill updates. Source coverage was absent from the previously installed 0.1.2 DLL (confirmed by binary version/hash and launch log); this update installs it. Current game config enables Quartermaster with BaseRange=100; ExtendStationCoverage defaults to true on the next launch. A valid workbench within an accessible Deposit Chest area can support building, structure repair and dismantling across that same area. Vanilla workbench-circle rendering and native station interaction remain unchanged.
+
+Release build: zero warnings/errors; 28,718 behavior assertions passed; 426 binary members, 42 Harmony hook declarations and 18 reflection targets verified. In-game gull visuals and extended building acceptance remain pending; multiplayer untested.
+
+DLL SHA256: `6e12816c50f811a22a8eefb0ae7215d194c933e562bf7d1f5f96c3d2b13b7ab7`
+
+Backup: `/home/deck/Documents/ChatGPT/Valheim mods/Quartermaster/backups/update-0.1.8-20260914-230642`. All installed paths were verified byte-for-byte. The backup manifest uses the existing install_local.py restoration format. Earlier installation history follows.
+
+---
+
 # Local update — Quartermaster 0.1.2
 
 Installed on 2026-09-14 after the user saved and closed Valheim. The Steam game folder, r2modman **Mods** profile and manager cache now contain 0.1.2. No hot reload was performed. Relaunch Valheim to load this version.

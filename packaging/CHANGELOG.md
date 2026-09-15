@@ -1,3 +1,37 @@
+## 0.1.10
+
+- Deposit routing now transfers at most one occupied slot per automation cycle (normally two seconds). Blocked slots are skipped so later routable items can still move; partial transfers stop the cycle and preserve the remainder.
+- Each slot with a successful transfer queues exactly three cosmetic throws, independent of stack size. Visible sorting waits for the previous three-throw sequence, including under slow frames. Hidden or unavailable visuals do not stall routing.
+
+## 0.1.9
+
+- Fixed the floating Deposit gull: select the currently visible lid, sample its surface where readable, and align the model's lowest foot vertices to the perch. Hidden open-lid geometry no longer raises the perch or chest decorations.
+- The gull follows its chest outside the chest renderer hierarchy so chest glow effects cannot make the bird or helmet emissive. The bird owns non-emissive material copies and receives normal lighting/shadows.
+- Preserve cleanup on chest destruction, disabling, unloading and Deposit mode changes; update the perch when the lid opens/closes.
+
+## 0.1.8
+
+- Added a helmeted gull atop Deposit Chests: sorting flourishes after transfers, annoyed double pecks for unsorted leftovers, and idle gestures with occasional nearby-player glances.
+- Sorting tosses use tiny mesh-only props that bounce against scenery and fade after landing; bounded lifetime, distance and count limits, no physical inventory drops.
+- Gull and props hide when Deposit mode or the mod is disabled and clean up with the chest.
+
+## 0.1.7
+
+- Updated README testing-status wording.
+
+## 0.1.6
+
+- Shortened the README and gave the gull a pitch specific to this mod.
+
+## 0.1.5
+
+- Rewrote the README in the voice of a Viking gull selling a well-used longship. Installation, controls and testing status remain documented.
+
+# 0.1.4
+
+- Moved inventory action buttons to the bottom-left and kept them clear of the centre/right control hints.
+- Added feathered halos to the Deposit Chest gears and runes, plus soft nearby illumination matching their blue/amber status.
+
 # 0.1.3
 
 - A workbench, forge or other required station inside a Deposit Chest's area now supports building, structure repair and dismantling throughout that same area.

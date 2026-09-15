@@ -1,7 +1,7 @@
 {
   "name": "Quartermaster",
-  "version_number": "0.1.3",
-  "website_url": "",
+  "version_number": "0.1.10",
+  "website_url": "https://github.com/Vassteel/Quartermaster",
   "description": "Deposit Chests, learned storage, base supply, cooking racks, fermentation, production caps and delayed collection of ejected products. Local playtest build.",
   "dependencies": [
     "denikson-BepInExPack_Valheim-5.4.2350"

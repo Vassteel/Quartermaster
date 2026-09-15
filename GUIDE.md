@@ -73,3 +73,11 @@ On first load, existing Hearthkeeper-recorded chest dimensions are preserved to 
 ## Validation status
 
 Compiled against the installed Valheim managed assemblies. Automated checks cover binary API and Harmony hook matching, transfer conservation, item metadata, production-cap arithmetic, memory policy and randomized inventories. The Unity UI, gear placement across chest tiers, long-range operation and multiplayer handoffs still need an in-game playtest. See `VALIDATION.md` for exact results and the playtest checklist.
+
+## Deposit gull
+
+A small helmeted gull perches on each Deposit Chest’s visible lid. Its feathers and helmet use normal scene lighting. Deposit sorting handles one occupied slot (its stack) per cycle, normally every two seconds, skipping blocked slots. Each successful slot transfer produces three tiny visual throws of that item; the next visible slot waits for those throws to finish. They bounce on nearby floors or terrain and fade within a second of their first floor bounce; props that miss a floor expire within four seconds. They cannot be picked up and do not change inventory counts. At most 24 props exist locally, with three throws queued per chest.
+
+After the flourish, items without a destination or with full/busy storage make the gull double-peck the lid and glare. Empty chests return to ordinary idle gestures; the gull occasionally glances toward a player within eight metres. Open/inaccessible chests idle. Decorations stop beyond 30 metres, on disabling the mod or unmarking Deposit mode, and are removed with the chest.
+
+Multiplayer untested. Routing feedback is local to the client processing the chest.

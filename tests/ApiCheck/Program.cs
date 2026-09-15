@@ -38,7 +38,7 @@ foreach (var patch in type.Methods)
         if (tp == null || tp.ParameterType.FullName != actual) Fail($"Hook argument {patch.Name}.{p.Name} mismatches target {target.FullName}");
     }
     var result = patch.Parameters.FirstOrDefault(p => p.Name == "__result");
-    if (result != null && ((ByReferenceType)result.ParameterType).ElementType.FullName != target.ReturnType.FullName) Fail("Result type " + patch.Name);
+    if (result != null && (result.ParameterType is ByReferenceType resultRef ? resultRef.ElementType.FullName : result.ParameterType.FullName) != target.ReturnType.FullName) Fail("Result type " + patch.Name);
 }
 foreach (var entry in new (string type, string name, string returns, string[] args)[] {
     ("Container", "CheckAccess", "System.Boolean", new[]{"System.Int64"}),
@@ -103,6 +103,28 @@ foreach (var path in Directory.GetFiles(Path.Combine(game, "BepInEx/plugins"), "
 {
     using var other = ModuleDefinition.ReadModule(path);
     foreach (var a in other.Types.SelectMany(t => t.CustomAttributes).Where(a => a.AttributeType.Name == "BepInPlugin")) Console.WriteLine("Installed original identity: " + string.Join(", ", a.ConstructorArguments.Select(a => a.Value)));
+}
+// Cosmetic props must never become real items, network objects or physics bodies.
+var gullActor=mod.Types.Single(t=>t.Name=="DepositGull");
+var createBird=gullActor.Methods.Single(m=>m.Name=="CreateBird");
+if(createBird.Body.Instructions.Any(i=>i.Operand is MethodReference m && m.DeclaringType.Name=="Transform" && m.Name=="SetParent"))
+    Fail("Deposit gull root must remain outside chest hierarchy to avoid inherited glow");
+foreach(var name in new[]{"OnDisable","OnDestroy"})
+    if(!gullActor.Methods.Any(m=>m.Name==name && m.HasBody)) Fail("Detached gull cleanup missing: "+name);
+foreach (var type in mod.Types.Where(t => t.Name is "GullToss" or "DepositGull"))
+foreach (var method in type.Methods.Where(m => m.HasBody))
+foreach (var instruction in method.Body.Instructions)
+{
+    if (instruction.Operand is not MethodReference call) continue;
+    if (call.DeclaringType.Name == "Inventory" && call.Name is "AddItem" or "RemoveItem" or "MoveItemToThis")
+        Fail("Cosmetic gull mutates inventory: " + call.FullName);
+    if (call.DeclaringType.Name == "ItemDrop" && call.Name is "DropItem" or "OnCreateNew")
+        Fail("Cosmetic gull creates real items: " + call.FullName);
+    if (call.DeclaringType.FullName == "UnityEngine.Object" && call.Name == "Instantiate")
+        Fail("Cosmetic gull clones a live prefab: " + call.FullName);
+    if (call is GenericInstanceMethod generic && call.Name == "AddComponent" &&
+        generic.GenericArguments.Any(t => t.Name is "ZNetView" or "ItemDrop" or "Rigidbody" or "SphereCollider" or "BoxCollider"))
+        Fail("Cosmetic gull adds gameplay component: " + call.FullName);
 }
 Console.WriteLine($"Resolved {members} binary members, {hooks} Harmony hooks, {reflected} reflection targets. Failures: {failures}.");
 Environment.ExitCode = failures == 0 ? 0 : 1;

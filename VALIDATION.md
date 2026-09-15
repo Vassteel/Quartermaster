@@ -1,4 +1,27 @@
-# Quartermaster 0.1.3 validation
+## 0.1.10 sequential-slot sorting
+
+- Release build: zero warnings/errors. 28,742 behavior assertions pass; 436 binary members, 42 Harmony hooks and 18 reflection targets resolve against the installed game.
+- Production routing tests verify visible slot order, one successful slot per cycle, whole-stack transfers, skipped blocked slots, partial remainders, empty inventories and exact quantity conservation using the shipped transfer implementation.
+- Production throw-schedule tests verify three spaced throws per slot, no fourth throw, slow-frame completion and clearing on hide/unload. The current visible gull must complete its three attempts before the next slot routes; hidden/missing visuals do not block automation. Existing global prop limits and unsupported-item visual fallbacks remain in effect.
+- In-game acceptance pending: place several distinct stacks into Deposit, close it, and observe one stack route per normal two-second cycle with three throws; repeat with an unmatched first slot and partly full storage; confirm the remaining stacks and counts stay correct.
+
+## 0.1.9 perch and lighting fix
+
+- The installed black-metal chest prefab contains separate Closed and Open lid models. The old all-renderer bounds included the hidden raised lid. Perching now uses the visible lid alone and intersects its readable triangles at the perch point; unreadable meshes fall back to that lid's bounds. Foot vertices are aligned before the deformation rig/helmet are created.
+- WildGlow 0.4.3 is installed and enumerates child renderers for chest emission. The gull now lives outside that hierarchy, follows the chest transform, uses private non-emissive bird materials and explicitly enables shadows. It remains owned and cleaned up by the chest component.
+- Release build: zero warnings/errors. 28,725 behavior assertions pass, including flat/sloped/reversed/edge/outside/degenerate/vertical triangle cases. 436 binary members, 42 Harmony hooks and 18 reflection targets resolve. Binary checks also guard detached-root creation and disable/destroy cleanup.
+- Live verification pending: closed/open black-metal lid contact; wooden/reinforced chests; gull/helmet in a dark room with WildGlow enabled; disable/re-enable Deposit and dismantle/unload the chest without leaving birds or props behind.
+
+## 0.1.8 gull validation
+
+- Release build: zero warnings/errors. 28,718 behavior assertions pass; 426 binary members, 42 Harmony hook declarations and 18 reflection targets resolve against the installed game.
+- Added routing-state checks for partial success, blocked leftovers, manual removal, open/inaccessible chests, final-item transfers, polling and reset. Added bounded bounce/fade lifetime checks.
+- Binary inspection rejects item-prefab instantiation, real drops, inventory mutations, colliders, rigidbodies or network components in the gull/prop implementation.
+- Manual acceptance pending: inspect helmet while idle/sorting/pecking; test wooden, reinforced and black-metal chest lids; route items to matching storage, then fill/block/remove destinations; manually empty leftovers; watch props bounce/fade on wooden floors, slopes and terrain; disable Deposit/mod and dismantle the chest; leave/rejoin the world. Verify normal chest access and exact inventory counts. Multiplayer untested.
+
+# Quartermaster 0.1.5 validation
+
+Version 0.1.5 updates the README voice and release metadata.
 
 Date: 2026-09-14. Version 0.1.0 was installed locally and the user reports initial playtesting is going well, including the gear appearance. Version 0.1.1 adds a 60-second range preview and glowing runic inscriptions; these changes, the revised bottom action bar and the three-second receipt outline still need in-game visual verification.
 
@@ -8,13 +31,15 @@ Cooking rack support covers the wooden/iron over-fire stations. Native cooking t
 
 Version 0.1.3 extends only the build-station lookup within a shared Deposit Chest sphere. Twenty-five new checks execute the actual coverage source against host stubs: radius and height boundaries, exact station type, live/accessible hubs and stations, ward restrictions, immediate removal/config changes, distant bases, preservation of native results, and preservation of the original point before vanilla flattens its height. API checks verify the static station registry and both build/removal call paths. Crafting interaction, station levels and extension distances are not patched. Live building/repair and multiplayer still need playtesting.
 
+Version 0.1.4 anchors the inventory actions 16 canvas units from the left edge and 12 from the bottom, fitting inside the left 28% to avoid the shown control hints. Gear and rune halos use a bilinear alpha falloff texture; two short-range, shadow-free lights tint nearby surfaces and switch off beyond 25 metres. Owned halo materials, meshes and texture are destroyed with the chest decoration. The layout and glow need an in-game visual check with the user's UI scale and chest tiers.
+
 ## Completed
 
 - Release compilation against the user's installed Valheim/BepInEx managed assemblies: **0 warnings, 0 errors**.
-- Binary linkage: **351 members** resolve to the installed game/runtime assemblies.
-- Harmony target inspection: **40 hook declarations** match their target methods and injected parameter types; **18 private reflection targets** match. Each of the three material-count transpiler targets has one expected `Inventory.CountItems` call site. These are static checks, not a live `PatchAll` run in Unity.
+- Binary linkage: **370 members** resolve to the installed game/runtime assemblies.
+- Harmony target inspection: **42 hook declarations** match their target methods and injected parameter types; **18 private reflection targets** match. Each of the three material-count transpiler targets has one expected `Inventory.CountItems` call site. These are static checks, not a live `PatchAll` run in Unity.
 - Verified incompatibility identities against installed plugin metadata: `MaddCatter.Hearthkeeper` (0.1.7) and `TastyChickenLegs.AutomaticFermenters` (1.1.2).
-- Shipped policy/transfer source compiled into a separate deterministic behavior harness: **28,183 assertions passed**, including **1,000 randomized inventory trials**.
+- Shipped policy/transfer source compiled into a separate deterministic behavior harness: **28,200 assertions passed**, including **1,000 randomized inventory trials**.
 - Behavior checks: quantities and item metadata conserved under repeated partial/full transfers; no over-limit stacks created; no colliding grid slots; callbacks see both inventories after the transfer; different custom data does not merge; learned types survive emptiness; forgetting does not immediately relearn existing contents; restoration; deposit/overflow routing policy; group normalization; protected wood; whole-batch caps; zero caps; arithmetic overflow; many producers sharing stock and queued allowance; restarting after consumption.
 - Config-model roundtrip checked using the test host's JSON serializer. Unity `JsonUtility` and actual ZDO save/reload require the live test below.
 - Source scan confirms no F6/F7 bindings, remote Store Matching, consolidation code, custom reserves or stack-size controls in the maintained `src` tree. Unused recovered upstream code is archival only and is not compiled or shipped.
