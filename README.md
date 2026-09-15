@@ -1,29 +1,17 @@
 # Quartermaster
 
-The approved storage/automation design, implemented as an independent Hearthkeeper-derived local mod with new fermentation support. Build version: **0.1.3**.
+<img src="assets/quartermaster-gull-icon.png" alt="Viking gull overseeing storage chests" width="320">
 
-See [usage and installation](packaging/README.md) and [validation](VALIDATION.md).
+Organize storage and keep your Valheim base supplied. **In testing.**
 
-## Build
+- Deposit Chests sort supplies into storage that remembers your items.
+- Supply crafting, fuel, production and animal feeding.
+- Set production caps and automate fermenters.
 
-Requires .NET SDK 8 and an existing Valheim/BepInEx installation. Set `DOTNET` to your SDK executable and optionally `VALHEIM_PATH` to the game root, then run:
+Requires BepInEx. Disable Hearthkeeper and AutomaticFermenters before installing Quartermaster.
 
-```sh
-bash scripts/build.sh
-```
+Open a chest → **Chest Config → Use as Deposit Chest**. Aim at a machine and press **F9** to configure it. Automation works in loaded areas; multiplayer testing is ongoing.
 
-On this workspace's host:
+[GitHub](https://github.com/Vassteel/Quartermaster) · [Discord](https://discord.gg/abN7R2tWyK) · [Guide](GUIDE.md) · [Validation](VALIDATION.md)
 
-```sh
-DOTNET_CLI_HOME=/tmp/wildglow-cli DOTNET=/tmp/wildglow-dotnet/dotnet bash scripts/build.sh
-```
-
-Build from this `Quartermaster` directory. The build script compiles the plugin, runs behavior and API checks, then packages the ZIP. The icon PNG is checked in; regenerating it requires Python with Pillow and `python scripts/icon.py`.
-
-The behavior harness compiles the actual shipped Policy and InventoryTransfers sources against small deterministic interfaces. It does not run Unity. ApiCheck independently resolves the compiled plugin's game/runtime references, Harmony target signatures and reflected private APIs against the installed DLLs.
-
-`src` is the maintained implementation. `upstream` is an attribution/recovery snapshot only. `dist` contains the local installation package. Local installation details and backups are recorded in `INSTALLATION.md`.
-
-## AI disclosure and publishing
-
-Significant portions of Quartermaster's code, tests, documentation and procedural artwork code were generated using OpenAI Codex from user-provided requirements. The packaged README includes the disclosure. Select **AI Generated** on the Thunderstore listing when publishing, as required by [Thunderstore's disclosure notice](https://old.thunderstore.io/c/valheim/).
+Based on Hearthkeeper. Code, artwork and documentation developed with generative AI.
