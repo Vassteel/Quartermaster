@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace Quartermaster;
 
-[BepInPlugin("local.valheim.quartermaster", "Quartermaster", "0.1.18")]
+[BepInPlugin("local.valheim.quartermaster", "Quartermaster", "0.1.19")]
 [BepInIncompatibility("local.valheim.hearthward")]
 [BepInIncompatibility("MaddCatter.Hearthkeeper")]
 [BepInIncompatibility("TastyChickenLegs.AutomaticFermenters")]

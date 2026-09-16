@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.19
+
+- Shorten the README to the approved feature overview. Gameplay is unchanged from 0.1.18.
+
 ## 0.1.18 (server test build)
 
 - Replace the deposit gull with a burrowing owl in a cloth waistcoat and cap. Preserve three bounced/fading item tosses per sorted slot; add sleeping, head tilts and idle tracking.
