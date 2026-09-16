@@ -63,6 +63,7 @@ internal static class Automation
         string json = JsonUtility.ToJson(s); View(c).GetZDO().Set(MachineKey, json); SettingsCache[c] = (json, s); return true;
     }
     internal static string Status(Component c) => c && Statuses.TryGetValue(c, out var s) ? s : "Waiting for a Deposit Chest in range";
+    internal static void ForgetStatus(Component c) { Statuses.Remove(c); }
     internal static void SetStatus(Component c, string s) { if (c) Statuses[c] = s; }
     internal static IEnumerable<ItemDrop> Products(Component c)
     {

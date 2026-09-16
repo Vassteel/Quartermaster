@@ -5,7 +5,7 @@
     <LangVersion>latest</LangVersion>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <AssemblyName>Quartermaster</AssemblyName>
-    <Version>0.1.16</Version>
+    <Version>0.1.18</Version>
     <GamePath Condition="'$(GamePath)' == ''">/home/deck/.steam/steam/steamapps/common/Valheim</GamePath>
     <ManagedPath>$(GamePath)/valheim_Data/Managed</ManagedPath>
     <FrameworkPathOverride>$(ManagedPath)</FrameworkPathOverride>
@@ -14,6 +14,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="src/**/*.cs" />
+    <EmbeddedResource Include="assets/birds/surface.png" LogicalName="VikingBirds.surface.png" />
     <Reference Include="netstandard"><HintPath>$(ManagedPath)/netstandard.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="System.Net.Http"><HintPath>$(ManagedPath)/System.Net.Http.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="System.IO.Compression"><HintPath>$(ManagedPath)/System.IO.Compression.dll</HintPath><Private>false</Private></Reference>

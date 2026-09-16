@@ -38,19 +38,7 @@ internal static class ExternalSlotCompatibility
 				return true;
 			}
 			object[] parameters = new object[3] { x, y, null };
-			object obj = _eaqsIsSlotCell.Invoke(null, parameters);
-			bool flag = default(bool);
-			int num2;
-			if (obj is bool)
-			{
-				flag = (bool)obj;
-				num2 = 1;
-			}
-			else
-			{
-				num2 = 0;
-			}
-			return (byte)((uint)num2 & (flag ? 1u : 0u)) != 0;
+			return _eaqsIsSlotCell.Invoke(null, parameters) is bool protectedSlot && protectedSlot;
 		}
 		catch (Exception ex)
 		{
@@ -65,7 +53,7 @@ internal static class ExternalSlotCompatibility
 		if (!_lookupAttempted)
 		{
 			_lookupAttempted = true;
-			Type type = Type.GetType("EquipmentAndQuickSlots.API, EquipmentAndQuickSlots", throwOnError: false);
+			Type type = Type.GetType(EaqsApiTypeName, throwOnError: false);
 			_eaqsIsSlotCell = type?.GetMethod("IsSlotCell", BindingFlags.Static | BindingFlags.Public, null, new Type[3]
 			{
 				typeof(int),

@@ -18,7 +18,7 @@ internal static class ContainerRegistry
     {
         if (!c || SafeInventory(c) == null || !GetView(c) || !GetView(c).IsValid()) return;
         // Do not automate graves, ships, carts, loot containers or dungeon chests.
-        if (!c.GetComponent<Piece>() || !PrefabName(c).Contains("chest")) return;
+        if (c.GetComponentInParent<Ship>() || !c.GetComponent<Piece>() || !PrefabName(c).Contains("chest")) return;
         if (!All.Contains(c)) All.Add(c);
         Owners[c.GetInventory()] = c;
         if (!c.GetComponent<ChestVisual>()) c.gameObject.AddComponent<ChestVisual>();
@@ -27,6 +27,7 @@ internal static class ContainerRegistry
     internal static void Unregister(Container c)
     {
         All.Remove(c); Cache.Remove(c);
+        Automation.ForgetStatus(c);
         foreach (var k in Owners.Where(p => p.Value == c).Select(p => p.Key).ToArray()) Owners.Remove(k);
     }
     internal static void Clear() { All.Clear(); Owners.Clear(); Cache.Clear(); }

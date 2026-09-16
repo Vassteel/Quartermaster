@@ -1,8 +1,8 @@
 {
   "name": "Quartermaster",
-  "version_number": "0.1.16",
+  "version_number": "0.1.18",
   "website_url": "https://github.com/Vassteel/Quartermaster",
-  "description": "Gull-assisted Deposit Chests, learned storage, crafting supply, extended building coverage, production automation and requested ship unloading.",
+  "description": "Owl-assisted Deposit Chests, learned storage, configurable stacks, crafting supply, extended building coverage, production automation and requested ship unloading.",
   "dependencies": [
     "denikson-BepInExPack_Valheim-5.4.2350"
   ]

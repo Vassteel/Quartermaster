@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace Quartermaster;
 
-[BepInPlugin("local.valheim.quartermaster", "Quartermaster", "0.1.16")]
+[BepInPlugin("local.valheim.quartermaster", "Quartermaster", "0.1.18")]
 [BepInIncompatibility("local.valheim.hearthward")]
 [BepInIncompatibility("MaddCatter.Hearthkeeper")]
 [BepInIncompatibility("TastyChickenLegs.AutomaticFermenters")]
@@ -35,9 +35,13 @@ public sealed class Plugin : BaseUnityPlugin
         HideCheatItemMessages = Config.Bind("General", "HideCheatItemMessages", true, "Hide item cheat notices in tooltips and inventory pickup/removal messages. Independent of the item-tag cleanup scan.");
         Budget = Config.Bind("General", "ObjectsPerCycle", 24, new ConfigDescription("Rotating machine and deposit work budget every two seconds.", new AcceptableValueRange<int>(1, 100)));
         MachineKey = Config.Bind("Controls", "MachineConfig", new KeyboardShortcut(KeyCode.F9), "Open config for the machine or fire under the crosshair. Controller: use Machine Config from inventory.");
+        var stackSizes = Config.Bind("Inventory", "EnableStackSizes", true, "Set the maximum size of stackable items. Equipment and other single items are unchanged. Restart the game after changing this setting.");
+        var stackLimit = Config.Bind("Inventory", "MaximumStackSize", 1000, new ConfigDescription("Maximum items per stack, not a multiplier. Does not change item weight or delete existing items when lowered. Restart the game after changing this setting.", new AcceptableValueRange<int>(2, 100000)));
+        ItemStacks.Configure(Enabled.Value && stackSizes.Value, stackLimit.Value);
+        gameObject.AddComponent<ServerSettings>().Initialize(Config);
         harmony = new Harmony("local.valheim.quartermaster");
         try { harmony.PatchAll(typeof(Plugin).Assembly); }
-        catch (Exception e) { harmony.UnpatchSelf(); Log.LogError("Quartermaster disabled: game hooks did not match. " + e); enabled = false; }
+        catch (Exception e) { harmony.UnpatchSelf(); ItemStacks.Restore(); Log.LogError("Quartermaster disabled: game hooks did not match. " + e); enabled = false; }
     }
     private void Update()
     {
@@ -55,5 +59,5 @@ public sealed class Plugin : BaseUnityPlugin
         try { ItemTagCleanup.Tick(); } catch (Exception e) { Log.LogError("Item tag scan failed; retrying next cycle: " + e); }
         try { Automation.Tick(); } catch (Exception e) { Log.LogError("Automation cycle failed; retrying next cycle: " + e); }
     }
-    private void OnDestroy() { harmony?.UnpatchSelf(); ChestUi.Dispose(); ContainerRegistry.Clear(); Automation.Clear(); ItemTagCleanup.Clear(); }
+    private void OnDestroy() { var settings=GetComponent<ServerSettings>();if(settings)settings.Shutdown(); harmony?.UnpatchSelf(); ItemStacks.Restore(); ChestUi.Dispose(); ContainerRegistry.Clear(); Automation.Clear(); ItemTagCleanup.Clear(); }
 }

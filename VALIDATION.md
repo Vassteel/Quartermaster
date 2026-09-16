@@ -1,3 +1,22 @@
+# Quartermaster 0.1.18 validation
+
+Release build: zero warnings/errors. **28,806 behavior assertions**, **27 material checks**, **14 stack-limit checks** and **8 UI focus regressions** pass. Binary inspection resolves **533 members, 47 Harmony hooks and 19 reflection targets** against the installed game.
+
+Behavior tests include multiple ship holds, blocked first holds, one-slot cadence, quantity/metadata conservation, unloading cancellation and normalized base groups. Stack tests cover configurable fixed limits, equipment exclusions, reloads and untouched existing quantities. Password focus remains checked over 300 pre-player frames.
+
+The burrowing owl uses original faceted geometry, a cloth waistcoat and a world-lit material on a separate perch. Three tosses per sorted slot remain. Server gameplay settings are synchronized without overwriting local config files. Ordinary boat holds cannot become automatic base-storage candidates.
+
+## Still to verify on the server
+
+- Matching server/client settings and 1,000-item stacks with StackIncrease disabled; confirm quantities when lowering limits.
+- Owl feet, texture, lighting, sleeping/head tracking and three bouncing/fading tosses on each chest type.
+- Explicit unloading across every imported cargo hold, blocked migration/access states and concurrent players opening storage.
+- Craft/build range, machine caps, daylight fishing output collection and restart persistence with the combined mod set.
+
+No real multiplayer or GPU acceptance pass is claimed by these automated checks.
+
+## Historical checks
+
 ## Chest lighting for the gull — 0.1.16
 
 The user confirmed 0.1.15 restored the bird but it still looked glowing. Native asset inspection shows the gull uses Custom/Creature and the black-metal chest uses Custom/Piece, with emission already black on the bird. This update uses the actual chest renderer's shader reference and probe anchor, retaining gull textures and disabling glow/gloss/noise. The exact GPU cause of the earlier brightness is not proven; in-game appearance remains pending.

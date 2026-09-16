@@ -1,3 +1,20 @@
+# Changelog
+
+## 0.1.18 (server test build)
+
+- Replace the deposit gull with a burrowing owl in a cloth waistcoat and cap. Preserve three bounced/fading item tosses per sorted slot; add sleeping, head tilts and idle tracking.
+- Handle every Helmsman cargo hold, keeping one-slot cadence and skipping blocked slots without losing metadata. Block unloading from unmigrated cargo.
+- Synchronize server gameplay settings without overwriting client files; exclude shipboard chests from automatic base storage.
+- Retain the password-input focus fix from 0.1.17.
+- Configurable stack limits default to 1,000 for stackable items. Single-item equipment, item weight and saved quantities are unchanged.
+- Stop a requested boat unload if its Deposit Chest changes base group; cargo stays aboard until a new request.
+- Clear destroyed chest status entries and ignore inactive lid geometry when locating the gull's perch.
+- Simplify equipment-slot compatibility checks without changing protected-slot behavior.
+
+## 0.1.17
+
+- Fix server password entry losing focus: inventory cleanup now deselects only Quartermaster controls.
+
 ## 0.1.16
 
 - Shade the Deposit gull with the actual chest's loaded Piece shader and light-probe anchor, retaining the gull texture and UVs.

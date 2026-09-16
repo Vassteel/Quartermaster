@@ -13,7 +13,7 @@ public static partial class HelmsmanCargoAccess
     public static bool Available => Plugin.Instance && Plugin.Instance.isActiveAndEnabled && Plugin.Enabled.Value &&
         Chainloader.PluginInfos.TryGetValue("local.valheim.helmsman",out var info) && info.Instance && info.Instance.isActiveAndEnabled;
 
-    internal static string ValidateBoat(Ship ship, out Container cargo)
+    internal static string ValidateBoat(Ship ship, out Container[] cargo)
     {
         cargo=null;
         if(!Available) return "Helmsman and Quartermaster must both be enabled.";
@@ -23,13 +23,27 @@ public static partial class HelmsmanCargoAccess
         if(ship.GetSpeedSetting()!=Ship.Speed.Stop || Mathf.Abs(ship.GetSpeed())>.5f || (bool)Controlling.Invoke(ship,null))
             return "Stop the boat and release the helm first.";
         var containers=ship.GetComponentsInChildren<Container>().Where(c=>c.GetComponentInParent<Ship>()==ship).ToArray();
-        if(containers.Length!=1) return "This boat needs one supported cargo hold.";
-        cargo=containers[0]; var view=ContainerRegistry.GetView(cargo);
-        if(!view || !view.IsValid() || !view.IsOwner() || cargo.GetInventory()==null) return "The cargo hold is not ready or locally owned.";
-        if(cargo.IsInUse() || view.GetZDO().GetInt(ZDOVars.s_inUse)!=0) return "Close the cargo hold first.";
-        if(!(bool)CheckAccess.Invoke(cargo,new object[]{player.GetPlayerID()}) ||
-            !PrivateArea.CheckAccess(ship.transform.position,0f,false,true)) return "You do not have access to this boat's cargo.";
+        if(containers.Length==0) return "This boat has no cargo hold.";
+        foreach(var hold in containers)
+        {
+            var scope=hold.GetComponent("Helmsman.ShipHoldScope");
+            if(scope&&AccessTools.Property(scope.GetType(),"MigrationBlocked")?.GetValue(scope) is true)return "A cargo hold is waiting for its saved items; check the Helmsman log.";
+            var view=ContainerRegistry.GetView(hold);
+            if(!view || !view.IsValid() || !view.IsOwner() || hold.GetInventory()==null) return "The cargo holds are not ready or locally owned.";
+            if(hold.IsInUse() || view.GetZDO().GetInt(InUseKey(hold))!=0) return "Close every cargo hold first.";
+            if(!(bool)CheckAccess.Invoke(hold,new object[]{player.GetPlayerID()}) ||
+                !PrivateArea.CheckAccess(ship.transform.position,0f,false,true)) return "You do not have access to this boat's cargo.";
+        }
+        cargo=containers;
         return "";
+    }
+    private static int InUseKey(Container cargo)
+    {
+        var scope=cargo.GetComponent("Helmsman.ShipHoldScope");
+        if(!scope)return ZDOVars.s_inUse;
+        var key=AccessTools.Method(scope.GetType(),"Key");
+        if(key==null)throw new System.InvalidOperationException("Unknown ship cargo key layout.");
+        return (int)key.Invoke(scope,new object[]{ZDOVars.s_inUse});
     }
     internal static bool HubInRange(Container hub, Ship ship)
     {

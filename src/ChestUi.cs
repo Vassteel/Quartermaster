@@ -134,10 +134,15 @@ internal static class ChestUi
     }
     internal static void Close()
     {
-        if (modal) UnityEngine.Object.Destroy(modal);
-        if (blocker) UnityEngine.Object.Destroy(blocker);
+        // InventoryGui.Hide also runs every frame before a player exists (including
+        // the server password screen). Release only focus owned by our own window.
+        var events = EventSystem.current;
+        var focused = events ? events.currentSelectedGameObject : null;
+        if (modal && focused && focused.transform.IsChildOf(modal.transform))
+            events.SetSelectedGameObject(null);
+        if (modal) { modal.SetActive(false); UnityEngine.Object.Destroy(modal); }
+        if (blocker) { blocker.SetActive(false); UnityEngine.Object.Destroy(blocker); }
         blocker = null; modal = null; chest = null; machine = null; controls.Clear();
-        if (EventSystem.current) EventSystem.current.SetSelectedGameObject(null);
     }
     internal static void Dispose() { Close(); if (dock) UnityEngine.Object.Destroy(dock); dock = null; dockCanvas = null; dockButtons.Clear(); }
     private static void Build()

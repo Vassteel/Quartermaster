@@ -40,7 +40,7 @@ internal static class ChestPerch
     private static bool Eligible(Container chest, MeshFilter filter, bool open)
     {
         var renderer=filter.GetComponent<MeshRenderer>();
-        return filter.sharedMesh && renderer && renderer.enabled &&
+        return filter.sharedMesh && filter.gameObject.activeInHierarchy && renderer && renderer.enabled &&
             (open || !chest.m_open || !filter.transform.IsChildOf(chest.m_open.transform));
     }
     internal static void SetFeetOnPerch(GameObject model)

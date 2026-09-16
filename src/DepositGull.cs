@@ -24,8 +24,7 @@ public sealed class DepositGull : MonoBehaviour
     private Transform lightAnchor;
     private Vector3 perchLocal;
     private bool perchedOnOpenLid;
-    private readonly List<Material> birdMaterials=new List<Material>();
-    private GullMeshRig rig;
+    private VikingBirds.PerchedBird rig;
     private readonly DepositGullState state = new DepositGullState();
     private GullPose blended;
     private DepositGullMood mood;
@@ -63,9 +62,6 @@ public sealed class DepositGull : MonoBehaviour
     }
     private void CreateBird()
     {
-        var prefab=ZNetScene.instance ? ZNetScene.instance.GetPrefab("Seagal") : null;
-        var source=prefab ? prefab.GetComponent<RandomFlyingBird>() : null;
-        if(!source || !source.m_landedModel) return;
         // Read the actual chest renderer: its bundled shader may not be in Shader.Find.
         worldMaterial=null;lightAnchor=chest.transform;
         foreach(var renderer in chest.GetComponentsInChildren<MeshRenderer>(true))
@@ -73,44 +69,15 @@ public sealed class DepositGull : MonoBehaviour
                 if(material && material.shader && material.shader.name=="Custom/Piece")
                 { worldMaterial=material;lightAnchor=renderer.probeAnchor ? renderer.probeAnchor : renderer.transform;break; }
         if(!worldMaterial)throw new InvalidOperationException("Chest's world-lit material is not available yet.");
-        bird=new GameObject("Quartermaster deposit gull");
-        // Keep this local actor outside the chest hierarchy: chest-targeted glow mods enumerate
-        // every child renderer, including accessories, and otherwise make the bird emissive.
+        bird=new GameObject("Quartermaster deposit owl perch");
+        // A separate root prevents chest glow effects from touching the owl's materials.
         perchLocal=ChestPerch.OnVisibleLid(chest,bounds);
         perchedOnOpenLid=chest.m_open && chest.m_open.activeInHierarchy;
         FollowChest();
-        // A slightly smaller gull fits the lid on all vanilla chest tiers.
-        var model=CopyStaticVisual(source.m_landedModel.transform,bird.transform);
-        if(!model.GetComponentInChildren<MeshRenderer>()) { Destroy(bird); bird=null; return; }
-        ChestPerch.SetFeetOnPerch(model);
-        rig=GullMeshRig.Create(model);
-        foreach(var renderer in bird.GetComponentsInChildren<Renderer>())renderer.probeAnchor=lightAnchor;
-        Plugin.Log.LogInfo("Deposit gull uses chest shader "+worldMaterial.shader.name+" with emission disabled and the chest lighting anchor.");
+        rig=new VikingBirds.PerchedBird(bird.transform,worldMaterial,true);
+        rig.Probes(lightAnchor);
+        Plugin.Log.LogInfo("Deposit burrowing owl uses matte world lighting and a separate chest perch.");
         started=Time.time; nextLook=Time.time+UnityEngine.Random.Range(2f,5f);
-    }
-    private GameObject CopyStaticVisual(Transform source, Transform parent)
-    {
-        // Construct renderer nodes from shared assets; none of the prefab's scripts can awaken.
-        var node=new GameObject(source.name); node.transform.SetParent(parent,false);
-        node.transform.localPosition=source.localPosition; node.transform.localRotation=source.localRotation;
-        node.transform.localScale=source.localScale;
-        var mesh=source.GetComponent<MeshFilter>(); var renderer=source.GetComponent<MeshRenderer>();
-        if(mesh && mesh.sharedMesh && renderer && renderer.enabled)
-        {
-            node.AddComponent<MeshFilter>().sharedMesh=mesh.sharedMesh;
-            var originals=renderer.sharedMaterials; var materials=new Material[originals.Length];
-            for(int i=0;i<originals.Length;i++)
-            {
-                if(!originals[i]) continue;
-                var material=GullMaterials.Feathers(originals[i],worldMaterial);
-                materials[i]=material; birdMaterials.Add(material);
-            }
-            var copy=node.AddComponent<MeshRenderer>(); copy.sharedMaterials=materials;
-            copy.shadowCastingMode=UnityEngine.Rendering.ShadowCastingMode.On; copy.receiveShadows=true;
-            copy.probeAnchor=lightAnchor;
-        }
-        foreach(Transform child in source) if(child.gameObject.activeSelf) CopyStaticVisual(child,node.transform);
-        return node;
     }
     private void LateUpdate()
     {
@@ -129,11 +96,9 @@ public sealed class DepositGull : MonoBehaviour
                 try { CreateBird(); }
                 catch(Exception error)
                 {
-                    rig?.Destroy();rig=null;
+                    rig?.Dispose();rig=null;
                     if(bird)Destroy(bird);bird=null;
-                    foreach(var material in birdMaterials)if(material)Destroy(material);
-                    birdMaterials.Clear();
-                    if(!creationWarning){creationWarning=true;Plugin.Log.LogWarning("Deposit gull creation will retry: "+error.Message);}
+                    if(!creationWarning){creationWarning=true;Plugin.Log.LogWarning("Deposit owl creation will retry: "+error.Message);}
                 }
             }
         }
@@ -167,10 +132,15 @@ public sealed class DepositGull : MonoBehaviour
             float peck=Pulse(p,.25f,.45f)+Pulse(p,.85f,.4f);
             pose.HeadPitch=80*peck; pose.BodyPitch=32*peck; pose.Crouch=.065*peck;
             pose.HeadYaw=p>1.6f ? 35*Mathf.Sin((p-1.6f)*2) : 0;
-            pose.HeadRoll=p>1.6f ? -14 : 0; pose.TailYaw=12*Mathf.Sin(t*20)*peck;
+            pose.HeadRoll=p>1.6f ? -42 : 0; pose.TailYaw=12*Mathf.Sin(t*20)*peck;
         }
         else
         {
+            // Burrowing owls punctuate still stares with exaggerated bobs and tilts.
+            float idle=t%6;
+            pose.HeadRoll=idle>4.8f ? 46*Mathf.Sin((idle-4.8f)/1.2f*Mathf.PI) : 0;
+            pose.HeadPitch+=22*Pulse(idle,.3f,.3f)+18*Pulse(idle,.9f,.3f);
+            pose.Crouch=.04*(Pulse(idle,.3f,.3f)+Pulse(idle,.9f,.3f));
             if(Time.time>=nextLook)
             { lookUntil=Time.time+UnityEngine.Random.Range(1.2f,2.2f); nextLook=lookUntil+UnityEngine.Random.Range(5f,10f); }
             var player=Player.m_localPlayer;
@@ -186,7 +156,10 @@ public sealed class DepositGull : MonoBehaviour
             }
         }
         blended=GullPerformance.Blend(blended,pose,1-Mathf.Exp(-Time.deltaTime*16));
-        rig?.Apply(blended);
+        rig?.Pose((float)blended.HeadPitch,(float)blended.HeadYaw,(float)blended.HeadRoll,
+            (float)blended.BodyPitch,(float)blended.Crouch,mood==DepositGullMood.Sorting ? 18*Mathf.Sin(t*9) : 0);
+        bool nearby=Player.m_localPlayer&&(Player.m_localPlayer.transform.position-bird.transform.position).sqrMagnitude<9;
+        rig?.Rest(!hasItems&&mood!=DepositGullMood.Sorting&&EnvMan.instance&&!EnvMan.IsDaylight()&&!nearby,Time.time,Time.deltaTime);
         if(throwNow) GullToss.Spawn(bird.transform,sample,rig!=null ? rig.BeakWorld : bird.transform.TransformPoint(new Vector3(0,.72f,.32f)));
         if(rig==null) bird.transform.rotation=transform.rotation*Quaternion.Euler((float)blended.BodyPitch,0,(float)blended.BodyRoll);
     }
@@ -211,7 +184,6 @@ public sealed class DepositGull : MonoBehaviour
     private void OnDestroy()
     {
         GullToss.ClearFor(bird ? bird.transform : null);
-        rig?.Destroy(); if(bird) Destroy(bird);
-        foreach(var material in birdMaterials) if(material) Destroy(material);
+        rig?.Dispose(); if(bird) Destroy(bird);
     }
 }

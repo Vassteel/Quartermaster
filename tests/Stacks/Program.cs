@@ -1,0 +1,34 @@
+using Quartermaster;
+int checks=0;
+void Check(bool condition,string reason){checks++;if(!condition)throw new Exception(reason);}
+ItemDrop.ItemData Item(int max,int count=1)=>new(){m_shared=new(){m_maxStackSize=max,m_weight=2},m_stack=count};
+var wood=Item(50,49);var sword=Item(1);var modded=Item(2000,1800);
+var db=new ObjectDB();
+foreach(var item in new[]{wood,sword,modded})db.m_items.Add(new(){Item=new(){m_itemData=item}});
+db.m_items.Add(null);db.m_items.Add(new());db.m_items.Add(new(){Item=new()});
+ItemStacks.Configure(false,1000);ItemStacks.ApplyDatabase(db);
+Check(wood.m_shared.m_maxStackSize==50,"Disabled setting preserves native limits");
+var carried=wood.Clone();
+ItemStacks.Configure(true,1000);ItemStacks.ApplyDatabase(db);
+Check(wood.m_shared.m_maxStackSize==1000 && carried.m_shared.m_maxStackSize==1000,"Prefab and existing shared inventory definitions agree");
+Check(sword.m_shared.m_maxStackSize==1,"Single-item equipment stays single");
+Check(wood.m_stack==49 && modded.m_stack==1800,"Existing quantities are never truncated, including oversize saved stacks");
+Check(modded.m_shared.m_maxStackSize==1000,"Setting is a fixed maximum for all stackable items");
+Check(wood.m_shared.m_weight==2,"Stack changes do not change weight");
+for(int i=0;i<100;i++)ItemStacks.ApplyDatabase(db);
+Check(wood.m_shared.m_maxStackSize==1000,"Repeated database loads cannot compound the limit");
+wood.m_shared.m_maxStackSize*=10; // Startup work by StackIncrease, before our final postfix.
+ItemStacks.ApplyDatabase(db);
+Check(wood.m_shared.m_maxStackSize==1000,"Final database pass takes precedence over an upstream multiplier");
+var late=Item(20);db.m_items.Add(new(){Item=new(){m_itemData=late}});ItemStacks.ApplyDatabase(db);
+Check(late.m_shared.m_maxStackSize==1000,"Newly registered modded items receive the limit");
+late.m_shared.m_maxStackSize=777;ItemStacks.Restore();
+Check(wood.m_shared.m_maxStackSize==50 && modded.m_shared.m_maxStackSize==2000,"Shutdown restores definitions owned by this feature");
+Check(late.m_shared.m_maxStackSize==777,"Shutdown preserves a later change made by another mod");
+ItemStacks.Configure(true,750);ItemStacks.Apply(wood.m_shared);
+Check(wood.m_shared.m_maxStackSize==750,"Custom stack maximum works");ItemStacks.Restore();
+ItemStacks.Configure(true,int.MaxValue);ItemStacks.Apply(wood.m_shared);
+Check(wood.m_shared.m_maxStackSize==100000,"Upper bound prevents overflow-sized limits");ItemStacks.Restore();
+ItemStacks.Configure(true,-10);ItemStacks.Apply(wood.m_shared);
+Check(wood.m_shared.m_maxStackSize==2,"Invalid low limits cannot turn stackables into equipment");ItemStacks.Restore();
+Console.WriteLine($"PASS: {checks} production stack-limit checks; quantities, equipment, settings and database reloads.");
