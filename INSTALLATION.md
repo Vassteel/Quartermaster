@@ -1,3 +1,15 @@
+# Local installation — Quartermaster 0.1.16
+
+Installed the chest-shader and light-probe change with Valheim and r2modman closed. All 16 changed game/profile/cache files were verified.
+
+- Backup: `backups/install-0.1.16-20260915-202150`
+- Package: `dist/Quartermaster-0.1.16.zip`
+- Zero build warnings/errors; 28,799 behavior and 27 material checks pass; 478 API references and all hook checks pass.
+
+The gull's brightness still needs a live visual check in the user's scene.
+
+## Previous installation
+
 # Local installation — Quartermaster 0.1.15
 
 Installed the native-material repair with Valheim and r2modman closed. All 16 changed game/profile/cache files were verified.

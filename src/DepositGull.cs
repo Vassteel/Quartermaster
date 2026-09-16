@@ -20,6 +20,8 @@ public sealed class DepositGull : MonoBehaviour
     }
     private Container chest;
     private GameObject bird;
+    private Material worldMaterial;
+    private Transform lightAnchor;
     private Vector3 perchLocal;
     private bool perchedOnOpenLid;
     private readonly List<Material> birdMaterials=new List<Material>();
@@ -64,6 +66,13 @@ public sealed class DepositGull : MonoBehaviour
         var prefab=ZNetScene.instance ? ZNetScene.instance.GetPrefab("Seagal") : null;
         var source=prefab ? prefab.GetComponent<RandomFlyingBird>() : null;
         if(!source || !source.m_landedModel) return;
+        // Read the actual chest renderer: its bundled shader may not be in Shader.Find.
+        worldMaterial=null;lightAnchor=chest.transform;
+        foreach(var renderer in chest.GetComponentsInChildren<MeshRenderer>(true))
+            foreach(var material in renderer.sharedMaterials)
+                if(material && material.shader && material.shader.name=="Custom/Piece")
+                { worldMaterial=material;lightAnchor=renderer.probeAnchor ? renderer.probeAnchor : renderer.transform;break; }
+        if(!worldMaterial)throw new InvalidOperationException("Chest's world-lit material is not available yet.");
         bird=new GameObject("Quartermaster deposit gull");
         // Keep this local actor outside the chest hierarchy: chest-targeted glow mods enumerate
         // every child renderer, including accessories, and otherwise make the bird emissive.
@@ -75,6 +84,8 @@ public sealed class DepositGull : MonoBehaviour
         if(!model.GetComponentInChildren<MeshRenderer>()) { Destroy(bird); bird=null; return; }
         ChestPerch.SetFeetOnPerch(model);
         rig=GullMeshRig.Create(model);
+        foreach(var renderer in bird.GetComponentsInChildren<Renderer>())renderer.probeAnchor=lightAnchor;
+        Plugin.Log.LogInfo("Deposit gull uses chest shader "+worldMaterial.shader.name+" with emission disabled and the chest lighting anchor.");
         started=Time.time; nextLook=Time.time+UnityEngine.Random.Range(2f,5f);
     }
     private GameObject CopyStaticVisual(Transform source, Transform parent)
@@ -91,11 +102,12 @@ public sealed class DepositGull : MonoBehaviour
             for(int i=0;i<originals.Length;i++)
             {
                 if(!originals[i]) continue;
-                var material=GullMaterials.Feathers(originals[i]);
+                var material=GullMaterials.Feathers(originals[i],worldMaterial);
                 materials[i]=material; birdMaterials.Add(material);
             }
             var copy=node.AddComponent<MeshRenderer>(); copy.sharedMaterials=materials;
             copy.shadowCastingMode=UnityEngine.Rendering.ShadowCastingMode.On; copy.receiveShadows=true;
+            copy.probeAnchor=lightAnchor;
         }
         foreach(Transform child in source) if(child.gameObject.activeSelf) CopyStaticVisual(child,node.transform);
         return node;

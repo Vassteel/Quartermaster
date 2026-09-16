@@ -1,3 +1,8 @@
+## 0.1.16
+
+- Shade the Deposit gull with the actual chest's loaded Piece shader and light-probe anchor, retaining the gull texture and UVs.
+- Keep emission, gloss, chest texture noise and triplanar mapping disabled. No shader-name lookup is needed.
+
 ## 0.1.15
 
 - Fix the missing Deposit Chest gull: clone its native material rather than requiring named Piece/Standard shaders.

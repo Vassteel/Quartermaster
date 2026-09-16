@@ -1,3 +1,9 @@
+## Chest lighting for the gull — 0.1.16
+
+The user confirmed 0.1.15 restored the bird but it still looked glowing. Native asset inspection shows the gull uses Custom/Creature and the black-metal chest uses Custom/Piece, with emission already black on the bird. This update uses the actual chest renderer's shader reference and probe anchor, retaining gull textures and disabling glow/gloss/noise. The exact GPU cause of the earlier brightness is not proven; in-game appearance remains pending.
+
+Zero build warnings/errors; 28,799 behavior assertions, 27 material assertions and 478 binary members / 44 Harmony hooks / 19 reflection targets pass. Check the gull in the same indoor scene and outdoors, including with lights off. Confirm the new chest-shader message in the log.
+
 ## Missing gull fix — 0.1.15
 
 The live 0.1.14 log showed `No supported world-lit shader for the Deposit gull` from material creation. The failed attempt left an empty actor. Native prefab material cloning removes the failed lookup; creation now cleans up and retries on exceptions.
