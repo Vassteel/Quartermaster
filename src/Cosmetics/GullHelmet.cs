@@ -39,12 +39,7 @@ public sealed class GullHelmet : MonoBehaviour
     }
     private Material Material(Color color, float metallic)
     {
-        var shader = Shader.Find("Standard");
-        if (!shader) shader = Shader.Find("Custom/Creature");
-        if (!shader) shader = Shader.Find("Sprites/Default");
-        var material = new Material(shader) { color = color };
-        if (material.HasProperty("_Metallic")) material.SetFloat("_Metallic", metallic);
-        if (material.HasProperty("_Glossiness")) material.SetFloat("_Glossiness", .28f);
+        var material = Quartermaster.Cosmetics.GullMaterials.Create(color, metallic);
         materials.Add(material); return material;
     }
     private void Surface(string label, Material material, int sides, int rings, System.Func<float,float,Vector3> point)

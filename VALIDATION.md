@@ -1,6 +1,25 @@
+## Gull feedback — 0.1.14
+
+- 28,799 behavior assertions and 20 material checks pass. Added 13 checks for assignment versus capacity advice, busy matching storage, remaining capacity for other items, and announcement cooldown/rearming.
+- 473 binary member references, 44 Harmony hooks and 19 existing reflection targets resolve; the chat visibility field is also verified.
+- In-game acceptance pending: native gull sound, visible chat, item localization, silent repeats, multiple nearby Deposit Chests and cargo leftovers. GPU appearance and multiplayer remain untested.
+
+## 0.1.13 Deposit gull lighting
+
+- Replaced inherited creature material state with a fresh supported `Custom/Piece` material (lit Standard fallback). Keep vanilla albedo, tint and UV mapping; disable emission, noise-glow variants, gloss/reflections, rain/snow and piece texture-noise defaults. Helmet uses the same factory with no unlit fallback. Original game assets remain untouched.
+- Inspected the installed game's Seagal material and native `Custom/Piece` shader properties. The former already has black emission at rest; the screenshot alone does not establish the runtime cause. This changes the lighting/material path rather than repeating the previous emission-color-only cleanup.
+- Release build: zero warnings/errors. 28,786 behavior assertions; 20 material-state regression assertions; 452 binary members, 44 Harmony hooks and 19 reflection targets resolve. Material tests cover contaminated source state, texture/tint/UV preservation, source isolation, helmet settings and supported-lit-shader fallback; they do not simulate GPU output.
+- Live acceptance pending: compare the gull in the reported indoor scene with nearby wood, then daylight and darkness. Check that feathers/helmet respond to local light without self-illumination, with texture, perch and all sorting/idle gestures intact. Chest rune lighting remains enabled. Multiplayer untested.
+
+## 0.1.12 requested ship unloading
+
+- Added 24 request-loop assertions using shipped unloading/transfer code with host access/routing doubles: request-only execution, one-slot sequencing, throttle, quantity conservation, preserved visual snapshots, blocked/partial/full storage, destination group/range/access filters, cancellation, player changes and no auto-resume. Native access predicates still require live acceptance.
+- Existing inventory, deposit-gull and station checks remain included. The binary API checker now also resolves the ship's private helm-occupancy method.
+- Live acceptance pending: with both updated mods, approach a Deposit Chest without requesting (cargo must stay put); speak to the landed ship gull, request unloading and observe three bouncing/fading props per transferred slot. Check counts/metadata, unmatched/full storage, stopping mid-animation, leaving range, opening the hold and restarting the world. Repeat with either mod absent. Multiplayer untested.
+
 ## 0.1.10 sequential-slot sorting
 
-- Release build: zero warnings/errors. 28,742 behavior assertions pass; 436 binary members, 42 Harmony hooks and 18 reflection targets resolve against the installed game.
+- Release build: zero warnings/errors. 28,742 behavior assertions pass; 436 binary members, 44 Harmony hooks and 18 reflection targets resolve against the installed game.
 - Production routing tests verify visible slot order, one successful slot per cycle, whole-stack transfers, skipped blocked slots, partial remainders, empty inventories and exact quantity conservation using the shipped transfer implementation.
 - Production throw-schedule tests verify three spaced throws per slot, no fourth throw, slow-frame completion and clearing on hide/unload. The current visible gull must complete its three attempts before the next slot routes; hidden/missing visuals do not block automation. Existing global prop limits and unsupported-item visual fallbacks remain in effect.
 - In-game acceptance pending: place several distinct stacks into Deposit, close it, and observe one stack route per normal two-second cycle with three throws; repeat with an unmatched first slot and partly full storage; confirm the remaining stacks and counts stay correct.
@@ -9,12 +28,12 @@
 
 - The installed black-metal chest prefab contains separate Closed and Open lid models. The old all-renderer bounds included the hidden raised lid. Perching now uses the visible lid alone and intersects its readable triangles at the perch point; unreadable meshes fall back to that lid's bounds. Foot vertices are aligned before the deformation rig/helmet are created.
 - WildGlow 0.4.3 is installed and enumerates child renderers for chest emission. The gull now lives outside that hierarchy, follows the chest transform, uses private non-emissive bird materials and explicitly enables shadows. It remains owned and cleaned up by the chest component.
-- Release build: zero warnings/errors. 28,725 behavior assertions pass, including flat/sloped/reversed/edge/outside/degenerate/vertical triangle cases. 436 binary members, 42 Harmony hooks and 18 reflection targets resolve. Binary checks also guard detached-root creation and disable/destroy cleanup.
+- Release build: zero warnings/errors. 28,725 behavior assertions pass, including flat/sloped/reversed/edge/outside/degenerate/vertical triangle cases. 436 binary members, 44 Harmony hooks and 18 reflection targets resolve. Binary checks also guard detached-root creation and disable/destroy cleanup.
 - Live verification pending: closed/open black-metal lid contact; wooden/reinforced chests; gull/helmet in a dark room with WildGlow enabled; disable/re-enable Deposit and dismantle/unload the chest without leaving birds or props behind.
 
 ## 0.1.8 gull validation
 
-- Release build: zero warnings/errors. 28,718 behavior assertions pass; 426 binary members, 42 Harmony hook declarations and 18 reflection targets resolve against the installed game.
+- Release build: zero warnings/errors. 28,718 behavior assertions pass; 426 binary members, 44 Harmony hook declarations and 18 reflection targets resolve against the installed game.
 - Added routing-state checks for partial success, blocked leftovers, manual removal, open/inaccessible chests, final-item transfers, polling and reset. Added bounded bounce/fade lifetime checks.
 - Binary inspection rejects item-prefab instantiation, real drops, inventory mutations, colliders, rigidbodies or network components in the gull/prop implementation.
 - Manual acceptance pending: inspect helmet while idle/sorting/pecking; test wooden, reinforced and black-metal chest lids; route items to matching storage, then fill/block/remove destinations; manually empty leftovers; watch props bounce/fade on wooden floors, slopes and terrain; disable Deposit/mod and dismantle the chest; leave/rejoin the world. Verify normal chest access and exact inventory counts. Multiplayer untested.
@@ -37,7 +56,7 @@ Version 0.1.4 anchors the inventory actions 16 canvas units from the left edge a
 
 - Release compilation against the user's installed Valheim/BepInEx managed assemblies: **0 warnings, 0 errors**.
 - Binary linkage: **370 members** resolve to the installed game/runtime assemblies.
-- Harmony target inspection: **42 hook declarations** match their target methods and injected parameter types; **18 private reflection targets** match. Each of the three material-count transpiler targets has one expected `Inventory.CountItems` call site. These are static checks, not a live `PatchAll` run in Unity.
+- Harmony target inspection: **44 hook declarations** match their target methods and injected parameter types; **18 private reflection targets** match. Each of the three material-count transpiler targets has one expected `Inventory.CountItems` call site. These are static checks, not a live `PatchAll` run in Unity.
 - Verified incompatibility identities against installed plugin metadata: `MaddCatter.Hearthkeeper` (0.1.7) and `TastyChickenLegs.AutomaticFermenters` (1.1.2).
 - Shipped policy/transfer source compiled into a separate deterministic behavior harness: **28,200 assertions passed**, including **1,000 randomized inventory trials**.
 - Behavior checks: quantities and item metadata conserved under repeated partial/full transfers; no over-limit stacks created; no colliding grid slots; callbacks see both inventories after the transfer; different custom data does not merge; learned types survive emptiness; forgetting does not immediately relearn existing contents; restoration; deposit/overflow routing policy; group normalization; protected wood; whole-batch caps; zero caps; arithmetic overflow; many producers sharing stock and queued allowance; restarting after consumption.

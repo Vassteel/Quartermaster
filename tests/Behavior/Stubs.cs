@@ -4,7 +4,7 @@ using System.Reflection;
 public sealed class Prefab { public string name; public static implicit operator bool(Prefab p) => p != null; }
 public struct Vector2i { public int x, y; public Vector2i(int x, int y) { this.x=x; this.y=y; } }
 public static class Game { public static int m_worldLevel; }
-public sealed class Container : UnityEngine.MonoBehaviour { public Inventory Inventory; public bool Accessible = true, Owned = true, InUse; public Quartermaster.ChestSettings Settings = new(); }
+public sealed class Container : UnityEngine.MonoBehaviour { public Inventory GetInventory()=>Inventory; public Inventory Inventory; public bool Accessible = true, Owned = true, InUse; public Quartermaster.ChestSettings Settings = new(); }
 public class ItemDrop
 {
     public Prefab gameObject;
@@ -55,7 +55,7 @@ namespace Quartermaster
     internal static class Plugin
     {
         internal static TestLog Log=new();
-        internal static TestSetting<bool> Enabled=new(true), ExtendStationCoverage=new(true), ClearCheatItemTagsOnLoad=new(true);
+        internal static TestSetting<bool> Enabled=new(true), ExtendStationCoverage=new(true), ClearCheatItemTagsOnLoad=new(true), HideCheatItemMessages=new(true);
         internal static TestSetting<float> Range=new(100f);
     }
 }

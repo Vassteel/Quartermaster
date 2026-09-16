@@ -132,6 +132,22 @@ internal static class Automation
         }
         return count - remaining;
     }
+    internal static string ExplainUnsorted(BaseNetwork network,Container source,ItemDrop.ItemData item)
+    {
+        var rooms=network.Chests.Where(c=>c && c!=source && ContainerRegistry.Accessible(c))
+            .Where(c=>!ContainerRegistry.GetSettings(c).Deposit && ContainerRegistry.GetSettings(c).AcceptStorage)
+            .Select(c=>
+            {
+                var inventory=c.GetInventory();var settings=ContainerRegistry.GetSettings(c);
+                return new StorageRoom {
+                    Matching=settings.Accepts(InventoryTransfers.ItemId(item)),
+                    CanTakeItem=InventoryTransfers.CapacityFor(inventory,item,false)>0,
+                    HasAnySpace=inventory.NrOfItems()<inventory.GetWidth()*inventory.GetHeight() ||
+                        inventory.GetAllItems().Any(i=>i.m_stack<i.m_shared.m_maxStackSize)
+                };
+            });
+        return SortingFeedback.Explain(Label(item),rooms);
+    }
     private static void ProcessChest(Container c)
     {
         if (!ContainerRegistry.IsUsable(c, false)) return;
@@ -146,6 +162,8 @@ internal static class Automation
                 (Destinations(n, sorted.BlockedItem, c.transform.position, c).Count == 0 ? "No destination: " : "Storage full or busy: ") + Label(sorted.BlockedItem);
             SetStatus(c, sorted.Moved > 0 ? "Sorted one slot · " + sorted.Moved + " items" : blocked.Length > 0 ? blocked : "Ready for deposits");
             DepositGull.Report(c, sorted.Moved, blocked.Length > 0, sorted.Item);
+            DepositGull.Notice(c, sorted.Moved==0 && sorted.BlockedItem!=null
+                ? ExplainUnsorted(n,c,sorted.BlockedItem) : "", c.GetInventory().NrOfItems()==0);
         }
         if (s.AutoSort)
         {

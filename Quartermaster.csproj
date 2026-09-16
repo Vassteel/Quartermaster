@@ -5,7 +5,7 @@
     <LangVersion>latest</LangVersion>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <AssemblyName>Quartermaster</AssemblyName>
-    <Version>0.1.10</Version>
+    <Version>0.1.14</Version>
     <GamePath Condition="'$(GamePath)' == ''">/home/deck/.steam/steam/steamapps/common/Valheim</GamePath>
     <ManagedPath>$(GamePath)/valheim_Data/Managed</ManagedPath>
     <FrameworkPathOverride>$(ManagedPath)</FrameworkPathOverride>
@@ -23,6 +23,7 @@
     <Reference Include="0Harmony"><HintPath>$(BepInExPath)/0Harmony.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine"><HintPath>$(ManagedPath)/UnityEngine.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(ManagedPath)/UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.AudioModule"><HintPath>$(ManagedPath)/UnityEngine.AudioModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.AnimationModule"><HintPath>$(ManagedPath)/UnityEngine.AnimationModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.ParticleSystemModule"><HintPath>$(ManagedPath)/UnityEngine.ParticleSystemModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.PhysicsModule"><HintPath>$(ManagedPath)/UnityEngine.PhysicsModule.dll</HintPath><Private>false</Private></Reference>

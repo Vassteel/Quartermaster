@@ -2,6 +2,16 @@
 
 A local playtest build combining learned chest storage, base supply and fermentation in one mod.
 
+
+## Optional ship unloading
+
+Requires **Helmsman 0.2.8 or newer** and **Quartermaster 0.1.11 or newer**, both enabled. Stop the boat within a Deposit Chest's configured **BaseRange**, close the cargo hold and release the helm. Call the Helmsman gull, wait for it to land, then interact with the gull itself and choose **Unload cargo → Unload cargo to base**. Calling it or docking alone never transfers items.
+
+The gull unloads one occupied cargo slot per step into accessible storage in the nearest Deposit Chest's base group and radius. Quartermaster's learned types, preferred/overflow destinations, accepting-storage settings, access checks and ordinary stack limits apply. Each successful slot queues three temporary thrown props; the next slot waits for those throws. Props bounce and fade; they are decorative and cannot be collected. Unmatched cargo or excess that cannot fit remains aboard.
+
+You can close the dialogue while it works. **Stop unloading**, taking the helm, starting a voyage, opening the hold, leaving the boat/base, losing access or disabling either mod ends the request. A stopped/completed request never restarts automatically; talk to the gull to request another. Boats need one supported cargo hold. Existing multiplayer restrictions remain; multiplayer is untested.
+
+
 ## AI disclosure
 
 Quartermaster was developed using OpenAI Codex. Significant portions of the mod code, tests, documentation, and procedural artwork code were AI-generated from user-provided requirements and feedback. The package icon uses generated artwork; in-game gear decorations are rendered procedurally.
@@ -79,5 +89,9 @@ Compiled against the installed Valheim managed assemblies. Automated checks cove
 A small helmeted gull perches on each Deposit Chest’s visible lid. Its feathers and helmet use normal scene lighting. Deposit sorting handles one occupied slot (its stack) per cycle, normally every two seconds, skipping blocked slots. Each successful slot transfer produces three tiny visual throws of that item; the next visible slot waits for those throws to finish. They bounce on nearby floors or terrain and fade within a second of their first floor bounce; props that miss a floor expire within four seconds. They cannot be picked up and do not change inventory counts. At most 24 props exist locally, with three throws queued per chest.
 
 After the flourish, items without a destination or with full/busy storage make the gull double-peck the lid and glare. Empty chests return to ordinary idle gestures; the gull occasionally glances toward a player within eight metres. Open/inaccessible chests idle. Decorations stop beyond 30 metres, on disabling the mod or unmarking Deposit mode, and are removed with the chest.
+
+When sorting cannot progress, a player within 12 metres hears a native gull squawk and sees a local chat question naming an unsorted item. Unassigned items need a sample in a receiving chest or a chest-menu assignment. Full assigned storage prompts “Where else should it go?”; matching storage with room prompts a lid/access check. Only zero remaining slots **and** zero partial-stack capacity across all receiving chests in that loaded base group can trigger the suggestion to add a chest. Deposit Chests and disabled receiving storage are excluded.
+
+An unchanged problem is announced once. Changed problems have a 30-second cooldown per chest, and nearby gulls are spaced at least eight seconds apart. Emptying the Deposit Chest rearms the same future problem. Helmsman's requested cargo unloading uses the same storage explanations.
 
 Multiplayer untested. Routing feedback is local to the client processing the chest.

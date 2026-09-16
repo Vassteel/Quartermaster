@@ -33,7 +33,7 @@ public static class PrivateArea
 namespace HarmonyLib
 {
     [AttributeUsage(AttributeTargets.Class|AttributeTargets.Method)]
-    public class HarmonyPatch : Attribute { public HarmonyPatch(){} public HarmonyPatch(Type type,string name){} }
+    public class HarmonyPatch : Attribute { public HarmonyPatch(){} public HarmonyPatch(Type type,string name){} public HarmonyPatch(Type type,string name,Type[] args){} }
     public class HarmonyPrefix : Attribute { }
     public class HarmonyPostfix : Attribute { }
 }

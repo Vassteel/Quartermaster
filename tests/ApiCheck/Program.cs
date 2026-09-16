@@ -9,6 +9,7 @@ using var mod = ModuleDefinition.ReadModule(plugin, parameters);
 using var api = ModuleDefinition.ReadModule(Path.Combine(game, "valheim_Data/Managed/assembly_valheim.dll"), parameters);
 int failures = 0, members = 0, hooks = 0, reflected = 0;
 void Fail(string s) { Console.WriteLine("FAIL " + s); failures++; }
+if(!api.Types.Single(t=>t.Name=="Chat").Fields.Any(f=>f.Name=="m_hideTimer" && f.FieldType.FullName=="System.Single"))Fail("Chat visibility field changed");
 foreach (var reference in mod.GetMemberReferences())
 {
     if (!(reference.DeclaringType.Namespace == "" || reference.DeclaringType.Namespace.StartsWith("UnityEngine") || reference.DeclaringType.Namespace.StartsWith("BepInEx") || reference.DeclaringType.Namespace.StartsWith("HarmonyLib") || reference.DeclaringType.Namespace == "TMPro")) continue;
@@ -38,9 +39,16 @@ foreach (var patch in type.Methods)
         if (tp == null || tp.ParameterType.FullName != actual) Fail($"Hook argument {patch.Name}.{p.Name} mismatches target {target.FullName}");
     }
     var result = patch.Parameters.FirstOrDefault(p => p.Name == "__result");
+    foreach (var injected in patch.Parameters.Where(p => p.Name.StartsWith("___")))
+    {
+        var field = targetType.Resolve().Fields.FirstOrDefault(f => f.Name == injected.Name.Substring(3));
+        string injectedType = injected.ParameterType is ByReferenceType fieldRef ? fieldRef.ElementType.FullName : injected.ParameterType.FullName;
+        if (field == null || field.FieldType.FullName != injectedType) Fail("Injected field " + patch.Name + "." + injected.Name);
+    }
     if (result != null && (result.ParameterType is ByReferenceType resultRef ? resultRef.ElementType.FullName : result.ParameterType.FullName) != target.ReturnType.FullName) Fail("Result type " + patch.Name);
 }
 foreach (var entry in new (string type, string name, string returns, string[] args)[] {
+    ("Ship", "HaveControllingPlayer", "System.Boolean", Array.Empty<string>()),
     ("Container", "CheckAccess", "System.Boolean", new[]{"System.Int64"}),
     ("Inventory", "Changed", "System.Void", new[]{"System.Boolean", "System.Boolean"}),
     ("Smelter", "RPC_AddOre", "System.Void", new[]{"System.Int64", "System.String", "System.Boolean"}),
@@ -72,6 +80,10 @@ foreach (var name in new[] { "HaveRequirementItems", "HaveRequirements", "SetupR
 }
 foreach (var retired in new[] { "StackSizeService", "AutoRefuelService", "NativeInterface", "ContainerSizeService" })
     if (mod.Types.Any(t => t.Name == retired)) Fail("Retired implementation shipped: " + retired);
+var itemTooltip = api.Types.Single(t => t.Name == "ItemDrop").NestedTypes.Single(t => t.Name == "ItemData").Methods.Single(m => m.Name == "GetTooltip" && m.IsStatic);
+var tooltipStrings = itemTooltip.Body.Instructions.Select(i => i.Operand).OfType<string>().ToArray();
+if (!tooltipStrings.Contains("$achievements_cheated_item_inventory") || !tooltipStrings.Contains("\n<color=#808080><i>") || !tooltipStrings.Contains("</i></color>"))
+    Fail("Item tooltip notice format has changed");
 var stationType = api.Types.Single(t => t.Name == "CraftingStation");
 if (!stationType.Fields.Any(f => f.Name == "m_allStations" && f.IsStatic && f.FieldType.FullName == "System.Collections.Generic.List`1<CraftingStation>"))
     Fail("Station coverage registry injection does not match");

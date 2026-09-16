@@ -1,3 +1,21 @@
+## 0.1.14
+
+- Deposit gull squawks and asks where unsorted items belong, once per unchanged problem while nearby.
+- Distinguish unassigned items, full assigned storage and temporarily unavailable storage. Recommend more storage only when every receiving chest has no free slots or stack capacity.
+- Apply the same explanation to leftover ship cargo for Helmsman to announce.
+- Rewrite GitHub and Thunderstore READMEs as compact feature and control guides.
+
+## 0.1.13
+
+- Deposit gull and helmet now use private, matte world-lit materials with emission and noise glow disabled. Preserve the vanilla gull texture; remove the helmet's unlit shader fallback.
+- Visual acceptance in the affected indoor scene is still pending.
+
+## 0.1.11
+
+- Optional Helmsman integration: explicitly request boat cargo unloading through the landed ship gull near a Deposit Chest.
+- Routes one cargo slot per step into matching base storage with three gull throws. Unmatched/full-storage remainders stay aboard.
+- Rechecks boat/base access each step; requests stop on departure or cancellation and never auto-resume. Quartermaster alone keeps its existing behavior.
+
 ## 0.1.10
 
 - Deposit routing now transfers at most one occupied slot per automation cycle (normally two seconds). Blocked slots are skipped so later routable items can still move; partial transfers stop the cycle and preserve the remainder.

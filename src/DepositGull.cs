@@ -8,6 +8,16 @@ namespace Quartermaster;
 // Local decoration only: no ZNetView, inventory, drops, colliders or interaction interception.
 public sealed class DepositGull : MonoBehaviour
 {
+    private readonly GullNoticeGate notices=new GullNoticeGate();
+    private string pendingNotice="";
+    private static float nextAnnouncement;
+    internal static void Notice(Container chest,string message,bool empty)
+    {
+        var gull=chest ? chest.GetComponent<DepositGull>() : null;
+        if(!gull)return;
+        gull.pendingNotice=message;
+        if(empty)gull.notices.Resolved();
+    }
     private Container chest;
     private GameObject bird;
     private Vector3 perchLocal;
@@ -80,11 +90,7 @@ public sealed class DepositGull : MonoBehaviour
             for(int i=0;i<originals.Length;i++)
             {
                 if(!originals[i]) continue;
-                var material=new Material(originals[i]);
-                if(material.HasProperty("_EmissionColor")) material.SetColor("_EmissionColor",Color.black);
-                if(material.HasProperty("_EmissiveColor")) material.SetColor("_EmissiveColor",Color.black);
-                if(material.HasProperty("_NoiseGlowEnabled")) material.SetFloat("_NoiseGlowEnabled",0);
-                material.DisableKeyword("_EMISSION");
+                var material=GullMaterials.Feathers(originals[i]);
                 materials[i]=material; birdMaterials.Add(material);
             }
             var copy=node.AddComponent<MeshRenderer>(); copy.sharedMaterials=materials;
@@ -113,6 +119,10 @@ public sealed class DepositGull : MonoBehaviour
         var next=state.Get(Time.time,hasItems,canWork);
         if(canWork && throws.Remaining>0) next=DepositGullMood.Sorting;
         if(next!=mood) { mood=next; started=Time.time; }
+        if(mood==DepositGullMood.NeedsAttention && Time.time>=nextAnnouncement &&
+            Player.m_localPlayer && (Player.m_localPlayer.transform.position-bird.transform.position).sqrMagnitude<144 &&
+            notices.Take(Time.time,pendingNotice))
+        { GullSpeech.Say(bird.transform,pendingNotice);nextAnnouncement=Time.time+8; }
         float t=Time.time-started;
         bool throwNow=false;
         var pose=GullPerformance.Sample(GullMood.Calm,t);

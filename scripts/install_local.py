@@ -22,6 +22,7 @@ DISABLE = {
     'TastyChickenLegs-TimedTorchesStayLit': 'TimedTorchesStayLit.dll',
     'TastyChickenLegs-CandlesForever': 'CandlesForever.dll',
 }
+OPTIONAL_DISABLE = {'NoTaintTooltip': 'NoTaintTooltip.dll'}
 
 def digest(data):
     return hashlib.sha256(data).hexdigest() if data is not None else None
@@ -69,7 +70,7 @@ def plan():
         for name, data in files.items():
             changes[root / name] = data
     for root in (GAME, PROFILE):
-        for folder, filename in DISABLE.items():
+        for folder, filename in {**DISABLE, **OPTIONAL_DISABLE}.items():
             source = root / 'BepInEx/plugins' / folder / filename
             target = source.with_name(source.name + '.old')
             if source.exists():
@@ -77,19 +78,29 @@ def plan():
                     raise RuntimeError(f'Different disabled copy already exists: {target}')
                 changes[target] = source.read_bytes()
                 changes[source] = None
-            else:
+            elif folder in DISABLE:
                 assert target.exists(), f'Missing installed mod: {source}'
         cfg = root / 'BepInEx/config/r4v9n1.lightmyfire.cfg'
         text = cfg.read_bytes().decode() if cfg.exists() else '[General]\nEnabled = true\n'
         text, count = re.subn(r'(?m)^(Enabled[ \t]*=[ \t]*)(?:true|false)\b', r'\g<1>false', text)
         assert count == 1, f'Unexpected LightMyFire configuration: {cfg}'
         changes[cfg] = text.encode()
+        cfg = root / 'BepInEx/config/local.valheim.quartermaster.cfg'
+        text = cfg.read_bytes().decode() if cfg.exists() else '[General]\n'
+        if not re.search(r'(?m)^HideCheatItemMessages[ \t]*=', text):
+            newline = '\r\n' if '\r\n' in text else '\n'
+            setting = newline.join(['', '## Hide item cheat notices in tooltips and pickup/removal messages.', '# Setting type: Boolean', '# Default value: true', 'HideCheatItemMessages = true', ''])
+            if '[General]' + newline in text:
+                text = text.replace('[General]' + newline, '[General]' + newline + setting, 1)
+            else:
+                text += newline + '[General]' + newline + setting
+        changes[cfg] = text.encode()
     mods_path = PROFILE / 'mods.yml'
     mods = yaml.safe_load(mods_path.read_text())
     for m in mods:
         if m.get('enabled') and m['name'] not in DISABLE:
             assert not any(any(d.startswith(n + '-') for n in DISABLE) for d in m.get('dependencies', [])), f"Dependent mod: {m['name']}"
-        if m['name'] in DISABLE:
+        if m['name'] in DISABLE or m['name'].split('-')[-1] in OPTIONAL_DISABLE:
             m['enabled'] = False
     mods = [m for m in mods if m['name'] != 'local-Quartermaster']
     major, minor, patch = map(int, version.split('.'))

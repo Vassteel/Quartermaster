@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace Quartermaster;
 
-[BepInPlugin("local.valheim.quartermaster", "Quartermaster", "0.1.10")]
+[BepInPlugin("local.valheim.quartermaster", "Quartermaster", "0.1.14")]
 [BepInIncompatibility("local.valheim.hearthward")]
 [BepInIncompatibility("MaddCatter.Hearthkeeper")]
 [BepInIncompatibility("TastyChickenLegs.AutomaticFermenters")]
@@ -15,7 +15,7 @@ public sealed class Plugin : BaseUnityPlugin
 {
     internal static Plugin Instance;
     internal static ManualLogSource Log;
-    internal static ConfigEntry<bool> Enabled, CraftFromContainers, ExtendStationCoverage, ClearCheatItemTagsOnLoad;
+    internal static ConfigEntry<bool> Enabled, CraftFromContainers, ExtendStationCoverage, ClearCheatItemTagsOnLoad, HideCheatItemMessages;
     internal static ConfigEntry<float> Range, CraftRange;
     internal static ConfigEntry<int> Budget;
     internal static Container OpenContainer;
@@ -32,6 +32,7 @@ public sealed class Plugin : BaseUnityPlugin
         CraftFromContainers = Config.Bind("General", "CraftFromContainers", true, "Use materials from chests with Crafting Supply enabled.");
         ExtendStationCoverage = Config.Bind("General", "ExtendStationCoverage", true, "A required station inside a Deposit Chest's BaseRange supports building, structure repair and dismantling throughout that same area. Crafting and item upgrades still require station interaction.");
         ClearCheatItemTagsOnLoad = Config.Bind("General", "ClearCheatItemTagsOnLoad", true, "Clear cheat item tags once from your inventory after world entry and from accessible, locally owned storage chests after their saved contents load. Distant chests are scanned when loaded. Changes persist on normal saves; disabling this does not restore removed tags.");
+        HideCheatItemMessages = Config.Bind("General", "HideCheatItemMessages", true, "Hide item cheat notices in tooltips and inventory pickup/removal messages. Independent of the item-tag cleanup scan.");
         Budget = Config.Bind("General", "ObjectsPerCycle", 24, new ConfigDescription("Rotating machine and deposit work budget every two seconds.", new AcceptableValueRange<int>(1, 100)));
         MachineKey = Config.Bind("Controls", "MachineConfig", new KeyboardShortcut(KeyCode.F9), "Open config for the machine or fire under the crosshair. Controller: use Machine Config from inventory.");
         harmony = new Harmony("local.valheim.quartermaster");
