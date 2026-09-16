@@ -19,6 +19,7 @@ public class Material : Object
     public readonly Dictionary<string, object> values = new();
     public readonly HashSet<string> keywords = new();
     public Material(Shader shader) { this.shader=shader; }
+    public Material(Material source) {shader=source.shader; foreach(var pair in source.values)values[pair.Key]=pair.Value;foreach(var keyword in source.keywords)keywords.Add(keyword);}
     public bool HasProperty(string property) => true;
     public Color GetColor(string name) => values.TryGetValue(name,out var value) ? (Color)value : Color.white;
     public void SetColor(string name, Color value) => values[name]=value;

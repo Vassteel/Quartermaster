@@ -5,7 +5,7 @@
     <LangVersion>latest</LangVersion>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <AssemblyName>Quartermaster</AssemblyName>
-    <Version>0.1.14</Version>
+    <Version>0.1.15</Version>
     <GamePath Condition="'$(GamePath)' == ''">/home/deck/.steam/steam/steamapps/common/Valheim</GamePath>
     <ManagedPath>$(GamePath)/valheim_Data/Managed</ManagedPath>
     <FrameworkPathOverride>$(ManagedPath)</FrameworkPathOverride>

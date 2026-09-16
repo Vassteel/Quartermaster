@@ -6,14 +6,17 @@ namespace VikingGull;
 // Original procedural accessory. Each actor owns its meshes/materials; vanilla assets stay untouched.
 public sealed class GullHelmet : MonoBehaviour
 {
+    private Material template;
     private readonly List<Mesh> meshes = new List<Mesh>();
     private readonly List<Material> materials = new List<Material>();
     internal static readonly Vector3 Crown = new Vector3(0, 1.216f, -.345f);
-    internal static GullHelmet Create(Transform parent, Vector3 position)
+    internal static GullHelmet Create(Transform parent, Vector3 position, Material template = null)
     {
         var root = new GameObject("Viking gull helmet");
         root.transform.SetParent(parent, false); root.transform.localPosition = position;
         var helmet = root.AddComponent<GullHelmet>();
+        var nativeRenderer=parent.GetComponent<Renderer>();
+        helmet.template=template ? template : nativeRenderer ? nativeRenderer.sharedMaterial : null;
         var iron = helmet.Material(new Color(.27f, .30f, .32f), .65f);
         var bronze = helmet.Material(new Color(.57f, .35f, .13f), .55f);
         var horn = helmet.Material(new Color(.82f, .75f, .54f), .05f);
@@ -39,7 +42,8 @@ public sealed class GullHelmet : MonoBehaviour
     }
     private Material Material(Color color, float metallic)
     {
-        var material = Quartermaster.Cosmetics.GullMaterials.Create(color, metallic);
+        var material = Quartermaster.Cosmetics.GullMaterials.Create(template, color, metallic);
+        if(material.HasProperty("_MainTex"))material.SetTexture("_MainTex",Texture2D.whiteTexture);
         materials.Add(material); return material;
     }
     private void Surface(string label, Material material, int sides, int rings, System.Func<float,float,Vector3> point)
@@ -90,7 +94,7 @@ public sealed class GullHelmet : MonoBehaviour
             foreach(var p in points)
                 if(Mathf.Abs(p.x)<.09f && p.z>Mathf.Lerp(back,front,.68f) && p.y>top.y) top=p;
             if(float.IsInfinity(top.y)) return;
-            var helmet=Create(actor,new Vector3(0,top.y-.02f*model.transform.localScale.y,top.z));
+            var helmet=Create(actor,new Vector3(0,top.y-.02f*model.transform.localScale.y,top.z),skin.sharedMaterial);
             helmet.transform.localScale=model.transform.localScale;
             helmet.transform.localRotation=Quaternion.Euler(0,180,0);
             helmet.transform.SetParent(body,true);

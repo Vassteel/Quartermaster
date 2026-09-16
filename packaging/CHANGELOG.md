@@ -1,3 +1,9 @@
+## 0.1.15
+
+- Fix the missing Deposit Chest gull: clone its native material rather than requiring named Piece/Standard shaders.
+- Preserve the game's lighting variants and skin texture while disabling emission and noise glow; use native material references for the helmet too.
+- Clean up failed gull creation and retry, instead of leaving an empty actor that never recovers.
+
 ## 0.1.14
 
 - Deposit gull squawks and asks where unsorted items belong, once per unchanged problem while nearby.

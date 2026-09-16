@@ -27,7 +27,8 @@ public sealed class DepositGull : MonoBehaviour
     private readonly DepositGullState state = new DepositGullState();
     private GullPose blended;
     private DepositGullMood mood;
-    private float started, nextSense, nextLook, lookUntil;
+    private float started, nextSense, nextLook, lookUntil, nextCreateAttempt;
+    private bool creationWarning;
     private bool canWork, hasItems, visible;
     private Bounds bounds;
     private ItemDrop.ItemData sample;
@@ -110,7 +111,19 @@ public sealed class DepositGull : MonoBehaviour
                 (Player.m_localPlayer.transform.position-transform.position).sqrMagnitude<900;
             hasItems=chest.GetInventory()!=null && chest.GetInventory().NrOfItems()>0;
             canWork=visible && ContainerRegistry.IsUsable(chest,false);
-            if(visible && !bird) CreateBird();
+            if(visible && !bird && Time.time>=nextCreateAttempt)
+            {
+                nextCreateAttempt=Time.time+3;
+                try { CreateBird(); }
+                catch(Exception error)
+                {
+                    rig?.Destroy();rig=null;
+                    if(bird)Destroy(bird);bird=null;
+                    foreach(var material in birdMaterials)if(material)Destroy(material);
+                    birdMaterials.Clear();
+                    if(!creationWarning){creationWarning=true;Plugin.Log.LogWarning("Deposit gull creation will retry: "+error.Message);}
+                }
+            }
         }
         if(!visible) { Hide(); return; }
         if(!bird) return;

@@ -1,6 +1,6 @@
 {
   "name": "Quartermaster",
-  "version_number": "0.1.14",
+  "version_number": "0.1.15",
   "website_url": "https://github.com/Vassteel/Quartermaster",
   "description": "Gull-assisted Deposit Chests, learned storage, crafting supply, extended building coverage, production automation and requested ship unloading.",
   "dependencies": [

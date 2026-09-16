@@ -1,3 +1,15 @@
+# Local installation — Quartermaster 0.1.15
+
+Installed the native-material repair with Valheim and r2modman closed. All 16 changed game/profile/cache files were verified.
+
+- Backup: `backups/install-0.1.15-20260915-200840`
+- Package: `dist/Quartermaster-0.1.15.zip`
+- 28,799 behavior assertions, 27 material assertions and API/hook checks pass. Zero build warnings/errors.
+
+Restart to verify the Deposit Chest gull appears and shades normally. Live acceptance pending.
+
+## Previous installation
+
 # Local installation — Quartermaster 0.1.14
 
 Installed with Valheim and r2modman closed. The installer verified 18 changes across the game, Mods profile, manager cache and profile metadata.

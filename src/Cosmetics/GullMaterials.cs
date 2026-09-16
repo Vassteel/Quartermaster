@@ -3,17 +3,15 @@ using UnityEngine;
 
 namespace Quartermaster.Cosmetics;
 
-// Private, ordinary world-lit materials. Do not inherit creature glow keywords or
-// replace a missing lit shader with an unlit sprite shader.
+// Clone a material referenced by a native prefab: bundled shaders need not be
+// discoverable through Shader.Find. Preserve native lighting variants, remove glow.
 internal static class GullMaterials
 {
-    internal static Material Create(Color tint, float metallic = 0f)
+    internal static Material Create(Material source, Color tint, float metallic = 0f)
     {
-        var shader = Shader.Find("Custom/Piece");
-        if (!shader || !shader.isSupported) shader = Shader.Find("Standard");
-        if (!shader || !shader.isSupported)
-            throw new InvalidOperationException("No supported world-lit shader for the Deposit gull.");
-        var material = new Material(shader) { name = "Quartermaster gull (world lit)", color = tint };
+        if (!source || !source.shader)
+            throw new InvalidOperationException("Native gull material is not loaded yet.");
+        var material = new Material(source) { name = "Quartermaster gull (world lit)", color = tint };
         foreach (var property in new[] { "_EmissionColor", "_EmissiveColor", "_NoiseGlowColor" })
             if (material.HasProperty(property)) material.SetColor(property, Color.black);
         foreach (var property in new[] { "_NoiseGlowEnabled", "_Glossiness", "_MetalGloss", "_GlossMapScale",
@@ -31,14 +29,6 @@ internal static class GullMaterials
 
     internal static Material Feathers(Material source)
     {
-        // Keep the vanilla skin and UV mapping, but none of its shader state.
-        var material = Create(source.HasProperty("_Color") ? source.GetColor("_Color") : Color.white);
-        if (source.HasProperty("_MainTex"))
-        {
-            material.SetTexture("_MainTex", source.GetTexture("_MainTex"));
-            material.SetTextureScale("_MainTex", source.GetTextureScale("_MainTex"));
-            material.SetTextureOffset("_MainTex", source.GetTextureOffset("_MainTex"));
-        }
-        return material;
+        return Create(source, source.HasProperty("_Color") ? source.GetColor("_Color") : Color.white);
     }
 }

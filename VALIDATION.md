@@ -1,3 +1,9 @@
+## Missing gull fix — 0.1.15
+
+The live 0.1.14 log showed `No supported world-lit shader for the Deposit gull` from material creation. The failed attempt left an empty actor. Native prefab material cloning removes the failed lookup; creation now cleans up and retries on exceptions.
+
+Release build: zero warnings/errors; 28,799 behavior assertions, 27 material assertions and 470 binary members / 44 Harmony hooks / 19 reflection targets pass. The new regression case makes named shaders unavailable and verifies native material/texture preservation and emission suppression. These tests do not simulate GPU rendering; a fresh in-game visual check remains required.
+
 ## Gull feedback — 0.1.14
 
 - 28,799 behavior assertions and 20 material checks pass. Added 13 checks for assignment versus capacity advice, busy matching storage, remaining capacity for other items, and announcement cooldown/rearming.
