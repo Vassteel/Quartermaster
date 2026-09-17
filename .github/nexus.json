@@ -1,0 +1,9 @@
+{
+  "name": "Quartermaster",
+  "dlls": [
+    "Quartermaster.dll"
+  ],
+  "game": "valheim",
+  "page_id": 3813,
+  "file_id": null
+}
