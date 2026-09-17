@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.1.27
+
+- Refresh the README with current features, setup and controls.
+
+## 0.1.26
+
+- Recover existing chest registration when opening or accessing a chest after character changes or delayed loading.
+- Explain config access failures instead of silently ignoring the button.
+
+## 0.1.25
+
+- Enabled protection wards repel hostile creatures near their boundary. Normal ward permissions remain unchanged.
+- Add the server-synchronized WardRepelsMonsters setting.
+
+
+## 0.1.24
+
+- Match the Pickup tab to the vanilla inventory.
+- Temporarily use the vanilla black-metal model for Deposit Chests. Existing chests and contents are preserved.
+
+## 0.1.23
+
+- Add an inventory pickup filter. Ignore item types; manually pick one up to enable auto pickup again. Preferences save per character.
+
+## 0.1.22
+
+- Add a Quartermaster build tab and remodeled black metal Deposit Chest with an owl perch.
+- The owl hops into the open chest, throws three items per sorted slot, then returns to its perch. Player access keeps the lid open.
+- Requires Jotunn for build-menu registration.
+
+## 0.1.20
+
+- Fit the owl’s cloth waistcoat to its body and remove blotchy clothing texture. Preserve sorting and item-toss animations.
+
 ## 0.1.19
 
 - Shorten the README to the approved feature overview. Gameplay is unchanged from 0.1.18.

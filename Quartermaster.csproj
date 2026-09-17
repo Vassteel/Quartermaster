@@ -5,7 +5,7 @@
     <LangVersion>latest</LangVersion>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <AssemblyName>Quartermaster</AssemblyName>
-    <Version>0.1.19</Version>
+    <Version>0.1.27</Version>
     <GamePath Condition="'$(GamePath)' == ''">/home/deck/.steam/steam/steamapps/common/Valheim</GamePath>
     <ManagedPath>$(GamePath)/valheim_Data/Managed</ManagedPath>
     <FrameworkPathOverride>$(ManagedPath)</FrameworkPathOverride>
@@ -14,16 +14,19 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="src/**/*.cs" />
+    <EmbeddedResource Include="assets/deposit-chest/model.bin" LogicalName="Quartermaster.DepositChest.model" />
     <EmbeddedResource Include="assets/birds/surface.png" LogicalName="VikingBirds.surface.png" />
     <Reference Include="netstandard"><HintPath>$(ManagedPath)/netstandard.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="System.Net.Http"><HintPath>$(ManagedPath)/System.Net.Http.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="System.IO.Compression"><HintPath>$(ManagedPath)/System.IO.Compression.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="assembly_valheim"><HintPath>$(ManagedPath)/assembly_valheim.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="assembly_utils"><HintPath>$(ManagedPath)/assembly_utils.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Jotunn"><HintPath>$(GamePath)/BepInEx/plugins/ValheimModding-Jotunn/Jotunn.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="BepInEx"><HintPath>$(BepInExPath)/BepInEx.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="0Harmony"><HintPath>$(BepInExPath)/0Harmony.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine"><HintPath>$(ManagedPath)/UnityEngine.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(ManagedPath)/UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.AssetBundleModule"><HintPath>$(ManagedPath)/UnityEngine.AssetBundleModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.AudioModule"><HintPath>$(ManagedPath)/UnityEngine.AudioModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.AnimationModule"><HintPath>$(ManagedPath)/UnityEngine.AnimationModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.ParticleSystemModule"><HintPath>$(ManagedPath)/UnityEngine.ParticleSystemModule.dll</HintPath><Private>false</Private></Reference>

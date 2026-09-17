@@ -9,6 +9,14 @@ string Fingerprint(ItemDrop.ItemData i)=>$"{i.m_dropPrefab.name}:{i.m_quality}:{
 Dictionary<string,long> Payload(params Inventory[] inventories)=>inventories.SelectMany(i=>i.GetAllItems()).GroupBy(Fingerprint).ToDictionary(g=>g.Key,g=>g.Sum(i=>(long)i.m_stack));
 void Conserved(Dictionary<string,long> before, params Inventory[] inventories) { var after=Payload(inventories);Assert(before.Count==after.Count&&before.All(p=>after.TryGetValue(p.Key,out var n)&&n==p.Value),"quantity and metadata conserved"); }
 void Valid(Inventory inventory) { var items=inventory.GetAllItems();Assert(items.All(i=>i.m_stack>0&&i.m_stack<=i.m_shared.m_maxStackSize),"native stack limits");Assert(items.All(i=>i.m_gridPos.x>=0&&i.m_gridPos.x<inventory.GetWidth()&&i.m_gridPos.y>=0&&i.m_gridPos.y<inventory.GetHeight()),"valid slots");Assert(items.Select(i=>(i.m_gridPos.x,i.m_gridPos.y)).Distinct().Count()==items.Count,"unique slots"); }
+ChestVisitTests.Run(Assert);
+var defaultDeposit=ChestDefaults.Create(ChestDefaults.DepositPrefab);
+Assert(defaultDeposit.Deposit && !defaultDeposit.Accepts("Wood") && !defaultDeposit.Observe(new[]{"Wood"}),"new dedicated chest sorts instead of learning or receiving routed items");
+Assert(!ChestDefaults.Create("piece_chest_wood").Deposit,"ordinary chests retain normal storage defaults");
+defaultDeposit.Deposit=false;defaultDeposit.Group="Harbor";
+var savedDeposit=JsonSerializer.Serialize(defaultDeposit,new JsonSerializerOptions{IncludeFields=true});
+var restoredDeposit=JsonSerializer.Deserialize<ChestSettings>(savedDeposit,new JsonSerializerOptions{IncludeFields=true});
+Assert(!restoredDeposit.Deposit && restoredDeposit.Group=="Harbor","saved user settings override dedicated chest defaults");
 var chest = new ChestSettings();
 Assert(chest.Observe(new[]{"Wood","Wood","Coal"}),"learn manually placed types");
 Assert(chest.Remembered.Count==2,"no duplicate memory");

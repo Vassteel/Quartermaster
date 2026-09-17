@@ -37,7 +37,11 @@ internal static class ContainerRegistry
     internal static string PrefabName(Component c) => c ? c.gameObject.name.Replace("(Clone)", "") : "";
     internal static bool Accessible(Container c)
     {
-        if (!c || SafeInventory(c) == null || !Owners.ContainsKey(c.GetInventory()) || !Player.m_localPlayer) return false;
+        if (!c || SafeInventory(c) == null || !Player.m_localPlayer) return false;
+        // Awake may precede valid network state; a character change can also clear
+        // the registry while the scene's existing chests survive. Recover on access.
+        if (!Owners.ContainsKey(c.GetInventory())) Register(c);
+        if (!Owners.ContainsKey(c.GetInventory())) return false;
         var v = GetView(c);
         if (!v || !v.IsValid()) return false;
         if (!(bool)CheckAccess.Invoke(c, new object[] { Player.m_localPlayer.GetPlayerID() })) return false;
@@ -62,7 +66,7 @@ internal static class ContainerRegistry
         string json = v && v.IsValid() ? v.GetZDO().GetString(SettingsKey, "") : "";
         if (c && Cache.TryGetValue(c, out var entry) && entry.json == json) return entry.settings;
         ChestSettings s;
-        try { s = string.IsNullOrEmpty(json) ? new ChestSettings() : JsonUtility.FromJson<ChestSettings>(json); }
+        try { s = string.IsNullOrEmpty(json) ? ChestDefaults.Create(PrefabName(c)) : JsonUtility.FromJson<ChestSettings>(json); }
         catch { s = new ChestSettings { AcceptStorage = false, CraftingSupply = false, FuelSupply = false, ProcessingSupply = false }; }
         s.Remembered = s.Remembered ?? new List<string>(); s.Forgotten = s.Forgotten ?? new List<string>();
         if (c) Cache[c] = (json, s);

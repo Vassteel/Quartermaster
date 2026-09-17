@@ -73,6 +73,7 @@ public sealed class ChestVisual : MonoBehaviour
         {
             if (chest.m_open && r.transform.IsChildOf(chest.m_open.transform)) continue;
             if (!r.GetComponent<MeshFilter>() || !r.GetComponent<MeshFilter>().sharedMesh) continue;
+            if (!r.enabled || r.forceRenderingOff || r.transform == chest.GetComponent<QuartermasterChestModel>()?.Lid) continue;
             var local = r.GetComponent<MeshFilter>().sharedMesh.bounds;
             for (int i = 0; i < 8; i++)
             {
@@ -123,6 +124,13 @@ public sealed class ChestVisual : MonoBehaviour
     {
         var bounds = MeasureChest();
         DepositGull.Attach(chest, bounds);
+        if (chest.GetComponent<QuartermasterChestModel>())
+        {
+            // The dedicated coffer has its own trim and owl plate.
+            ornament = new GameObject("Quartermaster dedicated chest"); ornament.transform.SetParent(transform, false);
+            gears = new LineRenderer[0]; ornamentLights = new Light[0];
+            return;
+        }
         ornament = new GameObject("Quartermaster_DepositGears"); ornament.transform.SetParent(transform, false);
         // Decorate both long faces so orientation and chest variants remain readable.
         gears = new LineRenderer[4];

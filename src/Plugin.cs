@@ -7,7 +7,8 @@ using UnityEngine;
 
 namespace Quartermaster;
 
-[BepInPlugin("local.valheim.quartermaster", "Quartermaster", "0.1.19")]
+[BepInPlugin("local.valheim.quartermaster", "Quartermaster", "0.1.27")]
+[BepInDependency(Jotunn.Main.ModGuid)]
 [BepInIncompatibility("local.valheim.hearthward")]
 [BepInIncompatibility("MaddCatter.Hearthkeeper")]
 [BepInIncompatibility("TastyChickenLegs.AutomaticFermenters")]
@@ -15,7 +16,7 @@ public sealed class Plugin : BaseUnityPlugin
 {
     internal static Plugin Instance;
     internal static ManualLogSource Log;
-    internal static ConfigEntry<bool> Enabled, CraftFromContainers, ExtendStationCoverage, ClearCheatItemTagsOnLoad, HideCheatItemMessages;
+    internal static ConfigEntry<bool> Enabled, CraftFromContainers, ExtendStationCoverage, ClearCheatItemTagsOnLoad, HideCheatItemMessages, WardRepelsMonsters;
     internal static ConfigEntry<float> Range, CraftRange;
     internal static ConfigEntry<int> Budget;
     internal static Container OpenContainer;
@@ -33,6 +34,7 @@ public sealed class Plugin : BaseUnityPlugin
         ExtendStationCoverage = Config.Bind("General", "ExtendStationCoverage", true, "A required station inside a Deposit Chest's BaseRange supports building, structure repair and dismantling throughout that same area. Crafting and item upgrades still require station interaction.");
         ClearCheatItemTagsOnLoad = Config.Bind("General", "ClearCheatItemTagsOnLoad", true, "Clear cheat item tags once from your inventory after world entry and from accessible, locally owned storage chests after their saved contents load. Distant chests are scanned when loaded. Changes persist on normal saves; disabling this does not restore removed tags.");
         HideCheatItemMessages = Config.Bind("General", "HideCheatItemMessages", true, "Hide item cheat notices in tooltips and inventory pickup/removal messages. Independent of the item-tag cleanup scan.");
+        WardRepelsMonsters = Config.Bind("General", "WardRepelsMonsters", true, "Enabled protection wards turn hostile creatures away near their normal radius. Tamed creatures and friendly NPCs are unaffected.");
         Budget = Config.Bind("General", "ObjectsPerCycle", 24, new ConfigDescription("Rotating machine and deposit work budget every two seconds.", new AcceptableValueRange<int>(1, 100)));
         MachineKey = Config.Bind("Controls", "MachineConfig", new KeyboardShortcut(KeyCode.F9), "Open config for the machine or fire under the crosshair. Controller: use Machine Config from inventory.");
         var stackSizes = Config.Bind("Inventory", "EnableStackSizes", true, "Set the maximum size of stackable items. Equipment and other single items are unchanged. Restart the game after changing this setting.");
@@ -40,14 +42,14 @@ public sealed class Plugin : BaseUnityPlugin
         ItemStacks.Configure(Enabled.Value && stackSizes.Value, stackLimit.Value);
         gameObject.AddComponent<ServerSettings>().Initialize(Config);
         harmony = new Harmony("local.valheim.quartermaster");
-        try { harmony.PatchAll(typeof(Plugin).Assembly); }
+        try { harmony.PatchAll(typeof(Plugin).Assembly); BuildPieces.Initialize(); }
         catch (Exception e) { harmony.UnpatchSelf(); ItemStacks.Restore(); Log.LogError("Quartermaster disabled: game hooks did not match. " + e); enabled = false; }
     }
     private void Update()
     {
         if (!Player.m_localPlayer)
         {
-            if (inWorld) { ContainerRegistry.Clear(); Automation.Clear(); ItemTagCleanup.Clear(); ChestUi.Close(); inWorld = false; }
+            if (inWorld) { ContainerRegistry.Clear(); Automation.Clear(); ItemTagCleanup.Clear(); ChestUi.Close(); PickupFilter.Clear(); inWorld = false; }
             return;
         }
         inWorld = true;
@@ -59,5 +61,5 @@ public sealed class Plugin : BaseUnityPlugin
         try { ItemTagCleanup.Tick(); } catch (Exception e) { Log.LogError("Item tag scan failed; retrying next cycle: " + e); }
         try { Automation.Tick(); } catch (Exception e) { Log.LogError("Automation cycle failed; retrying next cycle: " + e); }
     }
-    private void OnDestroy() { var settings=GetComponent<ServerSettings>();if(settings)settings.Shutdown(); harmony?.UnpatchSelf(); ItemStacks.Restore(); ChestUi.Dispose(); ContainerRegistry.Clear(); Automation.Clear(); ItemTagCleanup.Clear(); }
+    private void OnDestroy() { BuildPieces.Shutdown(); QuartermasterChestModel.Release(); var settings=GetComponent<ServerSettings>();if(settings)settings.Shutdown(); harmony?.UnpatchSelf(); ItemStacks.Restore(); ChestUi.Dispose(); ContainerRegistry.Clear(); Automation.Clear(); ItemTagCleanup.Clear(); PickupFilter.Clear(); }
 }

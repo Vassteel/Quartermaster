@@ -3,6 +3,7 @@ using Mono.Cecil.Cil;
 var game = args[0]; var plugin = args[1];
 var resolver = new DefaultAssemblyResolver();
 resolver.AddSearchDirectory(Path.Combine(game, "valheim_Data/Managed")); resolver.AddSearchDirectory(Path.Combine(game, "BepInEx/core"));
+resolver.AddSearchDirectory(Path.Combine(game, "BepInEx/plugins/ValheimModding-Jotunn"));
 resolver.AddSearchDirectory(Path.GetDirectoryName(typeof(object).Assembly.Location));
 var parameters = new ReaderParameters { AssemblyResolver = resolver };
 using var mod = ModuleDefinition.ReadModule(plugin, parameters);
@@ -12,7 +13,7 @@ void Fail(string s) { Console.WriteLine("FAIL " + s); failures++; }
 if(!api.Types.Single(t=>t.Name=="Chat").Fields.Any(f=>f.Name=="m_hideTimer" && f.FieldType.FullName=="System.Single"))Fail("Chat visibility field changed");
 foreach (var reference in mod.GetMemberReferences())
 {
-    if (!(reference.DeclaringType.Namespace == "" || reference.DeclaringType.Namespace.StartsWith("UnityEngine") || reference.DeclaringType.Namespace.StartsWith("BepInEx") || reference.DeclaringType.Namespace.StartsWith("HarmonyLib") || reference.DeclaringType.Namespace == "TMPro")) continue;
+    if (!(reference.DeclaringType.Namespace == "" || reference.DeclaringType.Namespace.StartsWith("UnityEngine") || reference.DeclaringType.Namespace.StartsWith("BepInEx") || reference.DeclaringType.Namespace.StartsWith("HarmonyLib") || reference.DeclaringType.Namespace == "TMPro" || reference.DeclaringType.Namespace.StartsWith("Jotunn"))) continue;
     try { object resolved = reference is MethodReference method ? method.Resolve() : reference is FieldReference field ? field.Resolve() : null; if (resolved == null) Fail(reference.FullName); else members++; }
     catch (Exception e) { Fail(reference.FullName + " " + e.Message); }
 }
@@ -47,6 +48,34 @@ foreach (var patch in type.Methods)
     }
     if (result != null && (result.ParameterType is ByReferenceType resultRef ? resultRef.ElementType.FullName : result.ParameterType.FullName) != target.ReturnType.FullName) Fail("Result type " + patch.Name);
 }
+// The pickup filter must run before attraction, ownership requests and actual pickup.
+var autoPickup = api.Types.Single(t => t.Name == "Player").Methods.Single(m => m.Name == "AutoPickup");
+var autoInstructions = autoPickup.Body.Instructions.ToList();
+var eligibility = autoInstructions.Where(i => i.OpCode == OpCodes.Ldfld && i.Operand is FieldReference f && f.DeclaringType.Name == "ItemDrop" && f.Name == "m_autoPickup").ToList();
+if (eligibility.Count != 1) Fail("Pickup eligibility field read changed");
+else foreach (var callName in new[]{"RequestOwn", "Pickup", "set_position"})
+{
+    int site = autoInstructions.FindIndex(i => i.Operand is MethodReference r && r.Name == callName);
+    if (site < 0 || autoInstructions.IndexOf(eligibility[0]) >= site) Fail("Pickup filter must precede " + callName);
+}
+if (!api.Types.Single(t => t.Name == "ItemDrop").Methods.Where(m => m.Name is "Pickup" or "PickupUpdate").All(m =>
+    m.Body.Instructions.Any(i => i.Operand is MethodReference r && r.Name == "Pickup" && r.DeclaringType.Name == "Humanoid")))
+    Fail("Manual pickup ownership retry no longer reaches Humanoid.Pickup");
+// Class-level placement hook: validate the private injected ghost field too.
+var preview=mod.Types.Single(t=>t.Name=="DepositChestPreview");
+var previewPatch=preview.CustomAttributes.Single(a=>a.AttributeType.Name=="HarmonyPatch");
+var player=api.Types.Single(t=>t.Name=="Player");
+if((string)previewPatch.ConstructorArguments[1].Value!="SetupPlacementGhost" || player.Methods.Count(m=>m.Name=="SetupPlacementGhost" && m.Parameters.Count==0)!=1)
+    Fail("Deposit chest preview hook changed");
+if(!player.Fields.Any(f=>f.Name=="m_placementGhost" && f.FieldType.FullName=="UnityEngine.GameObject"))Fail("Placement ghost injection changed");
+else hooks++;
+var chestResource=(EmbeddedResource)mod.Resources.Single(r=>r.Name=="Quartermaster.DepositChest.model");
+var sourceRoot=Path.GetFullPath(Path.Combine(Path.GetDirectoryName(plugin)!,"../../.."));
+if(!chestResource.GetResourceData().SequenceEqual(File.ReadAllBytes(Path.Combine(sourceRoot,"assets/deposit-chest/model.bin"))))Fail("Stale embedded deposit chest mesh");
+var register=mod.Types.Single(t=>t.Name=="BuildPieces").Methods.Single(m=>m.Name=="Register");
+if(!register.Body.Instructions.Any(i=>i.OpCode==OpCodes.Ldstr && i.Operand is string value && value=="piece_chest_blackmetal"))Fail("Dedicated chest must inherit black metal storage and recipe");
+if(register.Body.Instructions.Any(i=>i.Operand is MethodReference m && m.DeclaringType.Name=="QuartermasterChestModel" && m.Name=="Build"))
+    Fail("Custom chest visuals must remain disabled while retaining the registered prefab");
 foreach (var entry in new (string type, string name, string returns, string[] args)[] {
     ("Ship", "HaveControllingPlayer", "System.Boolean", Array.Empty<string>()),
     ("Container", "CheckAccess", "System.Boolean", new[]{"System.Int64"}),
@@ -138,5 +167,15 @@ foreach (var instruction in method.Body.Instructions)
         generic.GenericArguments.Any(t => t.Name is "ZNetView" or "ItemDrop" or "Rigidbody" or "SphereCollider" or "BoxCollider"))
         Fail("Cosmetic gull adds gameplay component: " + call.FullName);
 }
+// Ward deterrence relies on the native ownership/maintenance gate before combat.
+var monster=api.Types.Single(t=>t.Name=="MonsterAI");
+var baseAi=api.Types.Single(t=>t.Name=="BaseAI");
+foreach(var member in new[]{("PrivateArea","m_allAreas"),("MonsterAI","m_targetCreature"),("MonsterAI","m_targetStatic")})
+{if(!api.Types.Single(t=>t.Name==member.Item1).Fields.Any(f=>f.Name==member.Item2))Fail("Ward field missing: "+member);else reflected++;}
+if(!baseAi.Methods.Any(m=>m.Name=="Flee"&&m.Parameters.Count==2&&m.Parameters[0].ParameterType.FullName=="System.Single"&&m.Parameters[1].ParameterType.FullName=="UnityEngine.Vector3"))Fail("Ward flee signature changed");else reflected++;
+if(!monster.Methods.Any(m=>m.Name=="Wakeup"&&m.Parameters.Count==0))Fail("Ward wakeup signature changed");else reflected++;
+var update=monster.Methods.Single(m=>m.Name=="UpdateAI");
+var baseCall=update.Body.Instructions.FirstOrDefault(i=>i.OpCode==OpCodes.Call&&i.Operand is MethodReference m&&m.DeclaringType.Name=="BaseAI"&&m.Name=="UpdateAI");
+if(baseCall==null||baseCall.Next.OpCode.FlowControl!=FlowControl.Cond_Branch||baseCall.Next.Next.OpCode!=OpCodes.Ldc_I4_0||baseCall.Next.Next.Next.OpCode!=OpCodes.Ret)Fail("MonsterAI no longer exits after the base gate");
 Console.WriteLine($"Resolved {members} binary members, {hooks} Harmony hooks, {reflected} reflection targets. Failures: {failures}.");
 Environment.ExitCode = failures == 0 ? 0 : 1;

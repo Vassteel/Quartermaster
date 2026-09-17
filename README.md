@@ -1,34 +1,49 @@
-# Quartermaster
+# 🦉 Quartermaster — Storage & Base Management
 
-<img src="assets/quartermaster-gull-icon.png" alt="Viking gull overseeing storage chests" width="320">
+<img src="https://raw.githubusercontent.com/Vassteel/Quartermaster/master/assets/quartermaster-gull-icon.png" alt="Quartermaster storage artwork" width="320">
 
-**Twelve chests of “miscellaneous”? The owl would like a word.**
+Twelve chests of “miscellaneous”? The owl would like a word.
 
-## Storage
+## 📦 Storage & Inventory
 
-- **Deposit Chests:** automatically sort items into your storage.
-- **Chest rules:** choose where items belong.
-- **Inventory tools:** deposit, sort and combine stacks.
-- **Configurable stacks:** up to your preferred limit.
-- **Owl assistant:** oversees storage and flags items that need attention.
+- **Deposit Chests:** Drop off supplies and automatically sort them into matching storage.
+- **Remembered items:** Chests remember assigned item types even when empty.
+- **Storage rules:** Configure preferred destinations, overflow chests and separate base groups. Copy settings between chests.
+- **Supply permissions:** Choose which chests provide crafting materials, production inputs, fuel or animal feed.
+- **Inventory tools:** Deposit All, sort inventories and chests, and combine compatible stacks.
+- **Pickup controls:** Choose which item types to collect automatically.
+- **Stack sizes:** Configure maximum stack sizes without changing item weight.
 
-## Base management
+## 🔨 Crafting & Base Automation
 
-- Craft, build and upgrade using stored materials.
-- Extend workbench building coverage.
-- Supply production stations and collect finished goods.
-- Refuel fires and torches.
-- Feed animals.
-- Unload ships through **Helmsman**.
+- **Craft from storage:** Craft, build and upgrade using nearby stored materials.
+- **Building coverage:** Extend station coverage through your Deposit Chest’s area.
+- **Production:** Supply compatible processors, fermenters and cooking racks, then collect finished goods.
+- **Machine controls:** Set production caps, pause automation and protect valuable wood.
+- **Refuelling & feeding:** Supply fires and torches, feed animals and optionally feed creatures being tamed.
+- **Protection wards:** Enabled wards turn hostile creatures away while retaining their normal access rules.
 
-## Getting started
+## 🦉 Your Base Assistant
 
-Requires **BepInEx**.
+- **Owl companion:** Oversees Deposit Chests, reacts to sorting and explains storage problems.
+- **Helmsman integration:** Ask the gull captain to unload ship cargo into your base.
+- **Accessible menus:** Searchable chest settings, range previews and controller navigation.
 
-Open **Chest Config**, enable **Deposit Chest**, and assign items to your receiving chests.
+## 🚀 Quick Start
 
-**F9:** machine settings.
+1. Install **BepInEx, Jötunn and Quartermaster**. Disable overlapping automation mods such as Hearthkeeper and AutomaticFermenters.
+2. Open a chest → **Chest Config → Use as Deposit Chest**.
+3. Put example items in receiving chests, or manage assignments through **Chest Config**.
+4. Put supplies in the Deposit Chest and close it.
+5. Choose each storage chest’s withdrawal permissions under **Supply**.
+6. Aim at a machine and press **F9** to configure it.
 
-Works in loaded areas. Install matching versions on the server and clients. **Multiplayer untested.**
+**Handy buttons:** Deposit All · Sort Chest · Sort Inventory
+
+Normal recipe and station requirements still apply. Automation works in loaded areas; it does not automatically restock your player inventory.
+
+**Testing:** Functional in local play. Multiplayer remains untested. Use matching versions on server and clients.
 
 [Guide](https://github.com/Vassteel/Quartermaster/blob/master/GUIDE.md) · [GitHub](https://github.com/Vassteel/Quartermaster) · [Discord](https://discord.gg/abN7R2tWyK)
+
+Code, artwork and documentation developed with generative AI.

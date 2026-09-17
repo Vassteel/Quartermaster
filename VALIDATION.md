@@ -1,3 +1,32 @@
+# Quartermaster 0.1.24 validation
+
+Release build: zero warnings/errors. 28,818 behavior assertions, 28 pickup-filter checks, 27 material checks, 14 stack-limit checks and 8 UI focus regressions pass. Binary inspection resolves 585 members, 53 Harmony hooks and 19 reflection targets with zero failures.
+
+The Pickup tab now clones the installed game's Armor tab, including its actual `bkg` sprite, native dimensions, outlined font/material and yellow count. Native asset inspection confirmed the background is a child, not an Image on the Armor root. The caption is smaller white text above the count; a native tooltip explains the filter and controller shortcut.
+
+The custom Deposit Chest mesh and placement bounds are no longer attached during registration. The existing prefab ID, native black-metal model/icon, storage, recipe and owl decoration remain. API validation checks that custom-model construction stays disabled. Owl chest-entry animation is inactive without the custom model.
+
+In-game appearance and existing placed-chest load still need a playtest. README files are unchanged.
+
+## Previous release validation
+
+# Quartermaster 0.1.23 validation
+
+Release build: zero warnings/errors. **28 pickup filter checks**, **28,818 existing behavior assertions**, **27 material checks**, **14 stack-limit checks** and **8 UI focus regressions** pass. Binary inspection resolves **589 members, 53 Harmony hooks and 19 reflection targets** against the installed game, with zero failures.
+
+The pickup filter checks cover individual item types, unchanged shared drop flags, local/remote player isolation, character save reloads, disabled behavior, full/partial/failed manual pickups, nested automatic pickup context, and transpiler shape changes. Tests use lightweight game/Harmony stubs; binary inspection separately confirms eligibility runs before attraction/ownership requests and both manual pickup paths reach the hooked method.
+
+## Pickup playtest still required
+
+- Open inventory and confirm the Pickup button fits between armor and weight at the normal UI scale and on Steam Deck. Controller shortcut: hold L-stick and press Y; use D-pad/A/B in the dialog.
+- Ignore resin: carried items stay put, resin on the ground stays put, and other types still collect. Manually collect resin (including a partial stack) and confirm automatic resin pickup resumes. A failed pickup must keep the filter.
+- Verify save/rejoin persistence, character isolation, and another player collecting a locally ignored drop, including ownership handoff.
+- Confirm chest/machine configuration, native global auto-pickup toggle, and password-screen focus remain usable.
+
+No in-game visual or multiplayer acceptance pass is claimed. README files are unchanged.
+
+## Previous release validation
+
 # Quartermaster 0.1.18 validation
 
 Release build: zero warnings/errors. **28,806 behavior assertions**, **27 material checks**, **14 stack-limit checks** and **8 UI focus regressions** pass. Binary inspection resolves **533 members, 47 Harmony hooks and 19 reflection targets** against the installed game.

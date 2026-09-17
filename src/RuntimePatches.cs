@@ -74,7 +74,7 @@ internal static class RuntimePatches
     [HarmonyPatch(typeof(Smelter), "UpdateSmelter"), HarmonyPrefix]
     private static void RecoverProcessorClock(Smelter __instance) => Automation.RecoverProcessorClock(__instance);
     [HarmonyPatch(typeof(InventoryGui), "Show"), HarmonyPostfix]
-    private static void Show(Container container) { Plugin.OpenContainer = container; ChestUi.Attach(); }
+    private static void Show(Container container) { Plugin.OpenContainer = container; if(container)ContainerRegistry.Register(container); ChestUi.Attach(); }
     [HarmonyPatch(typeof(InventoryGui), "Hide"), HarmonyPostfix]
     private static void Hide() { Plugin.OpenContainer = null; ChestUi.Close(); }
     [HarmonyPatch(typeof(InventoryGui), "Update"), HarmonyPrefix]

@@ -11,6 +11,7 @@ namespace Quartermaster;
 internal static class ChestUi
 {
     private static GameObject dock, modal, blocker;
+    private static bool pickupMode;
     private static readonly List<Button> dockButtons = new List<Button>();
     private static readonly float[] dockWidths = { 150, 130, 130, 160, 160 };
     private static RectTransform dockCanvas;
@@ -50,12 +51,14 @@ internal static class ChestUi
             if (Player.m_localPlayer) WarehouseService.SortInventory(Player.m_localPlayer.GetInventory(), true, true);
         }, false));
         dockButtons.Add(Button(dock.transform, "Machine Config", 0, -6, dockWidths[4], OpenHoveredMachine, false));
+        PickupTab.Attach(gui, OpenPickup);
         LayoutActions();
     }
     private static void LayoutActions()
     {
         if (!dock || !dockCanvas) return;
         bool visible = Plugin.Enabled.Value && InventoryGui.IsVisible() && Player.m_localPlayer && !IsOpen;
+        PickupTab.Layout(visible);
         dock.SetActive(visible);
         if (!visible) return;
         var openChest = Plugin.OpenContainer;
@@ -101,19 +104,22 @@ internal static class ChestUi
         }
         LayoutActions();
         if (!IsOpen) return;
-        if (!Plugin.Enabled.Value || !Player.m_localPlayer || Player.m_localPlayer.IsDead() || !InventoryGui.IsVisible() || !Near(chest ? (Component)chest : machine)) { Close(); return; }
+        if (!Plugin.Enabled.Value || !Player.m_localPlayer || Player.m_localPlayer.IsDead() || !InventoryGui.IsVisible() || (!pickupMode && !Near(chest ? (Component)chest : machine))) { Close(); return; }
         if (UnityEngine.Input.GetKeyDown(KeyCode.Escape) || ZInput.GetButtonDown("JoyButtonB"))
         { ZInput.ResetButtonStatus("JoyButtonB"); Close(); return; }
         if (Time.unscaledTime >= statusAt)
         {
             statusAt = Time.unscaledTime + .5f;
-            status.text = notice.Length > 0 ? notice : Automation.Status(chest ? (Component)chest : machine);
+            status.text = notice.Length > 0 ? notice : pickupMode ? PickupStatus() : Automation.Status(chest ? (Component)chest : machine);
         }
         Controller();
     }
     internal static bool TryControllerShortcut()
     {
-        if (!Plugin.Enabled.Value || !InventoryGui.IsVisible() || !ZInput.GetButton("JoyLStick") || !ZInput.GetButtonDown("JoyButtonA")) return false;
+        if (!Plugin.Enabled.Value || !InventoryGui.IsVisible() || !ZInput.GetButton("JoyLStick")) return false;
+        if (ZInput.GetButtonDown("JoyButtonY"))
+        { ZInput.ResetButtonStatus("JoyButtonY"); OpenPickup(); return true; }
+        if (!ZInput.GetButtonDown("JoyButtonA")) return false;
         ZInput.ResetButtonStatus("JoyButtonA");
         if (Plugin.OpenContainer) OpenChest(Plugin.OpenContainer); else OpenHoveredMachine();
         return true;
@@ -125,12 +131,60 @@ internal static class ChestUi
         if (!Automation.Owned(lastHovered))
         { Player.m_localPlayer.Message(MessageHud.MessageType.Center, "Machine is owned by another peer. Configure it from that peer."); return; }
         if (!InventoryGui.IsVisible()) InventoryGui.instance.Show(null);
-        machine = lastHovered; chest = null; tab = 0; page = 0; notice = ""; Build();
+        pickupMode = false; machine = lastHovered; chest = null; tab = 0; page = 0; notice = ""; Build();
     }
     private static void OpenChest(Container c)
     {
-        if (!c || !Near(c) || !ContainerRegistry.IsUsable(c, true)) return;
-        chest = c; machine = null; tab = 0; page = 0; query = ""; notice = ""; Build();
+        if (!c || !Near(c)) return;
+        if (!ContainerRegistry.IsUsable(c, true))
+        {
+            var view=ContainerRegistry.GetView(c);
+            string reason=!Plugin.Enabled.Value?"Quartermaster is disabled.":
+                !ContainerRegistry.Accessible(c)?"Chest Config unavailable: chest type or ward permissions do not allow access.":
+                !view.IsOwner()?"Waiting for chest ownership. Close and reopen the chest, then try Chest Config again.":
+                "Chest is currently in use. Close and reopen it before configuring.";
+            Player.m_localPlayer.Message(MessageHud.MessageType.Center,reason);return;
+        }
+        pickupMode = false; chest = c; machine = null; tab = 0; page = 0; query = ""; notice = ""; Build();
+    }
+    private static void OpenPickup()
+    {
+        if (!Plugin.Enabled.Value || !Player.m_localPlayer || !InventoryGui.IsVisible()) return;
+        pickupMode = true; chest = null; machine = null; page = 0; query = ""; notice = ""; Build();
+    }
+    private static string PickupStatus() => PickupFilter.Count(Player.m_localPlayer) + " item types ignored · Saved with your character";
+    private static void PickupBody()
+    {
+        Text(body, "Ignore an item type to stop collecting it automatically.\nPick one up manually from the ground to enable it again.", 0, 0, 672, 54, 20, Color.white);
+        Input(body, query, 0, -66, 672, value => { query = value; page = 0; Build(); }, "Search carried and ignored items");
+        var player = Player.m_localPlayer;
+        var types = player.GetInventory().GetAllItems().Select(PickupFilter.ItemId).Where(id => !string.IsNullOrEmpty(id))
+            .Concat(PickupFilter.Types(player)).Distinct().Where(id => PickupFilter.Label(id).IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
+            .OrderBy(PickupFilter.Label).ThenBy(id => id, StringComparer.Ordinal).ToList();
+        int pages = Math.Max(1, (types.Count + 3) / 4); page = Mathf.Clamp(page, 0, pages - 1);
+        if (types.Count == 0) Text(body, "No matching carried or ignored items.", 0, -132, 672, 48, 20, Muted);
+        for (int i = 0; i < 4 && page * 4 + i < types.Count; i++)
+        {
+            string id = types[page * 4 + i]; float y = -122 - i * 49;
+            var prefab = ObjectDB.instance ? ObjectDB.instance.GetItemPrefab(id) : null;
+            var item = prefab ? prefab.GetComponent<ItemDrop>() : null;
+            if (item)
+            {
+                var icon = Rect("ItemIcon", body, 0, y, 36, 36).gameObject.AddComponent<Image>();
+                icon.sprite = item.m_itemData.GetIcon(); icon.preserveAspect = true; icon.raycastTarget = false;
+            }
+            bool blocked = PickupFilter.IsIgnored(player, id);
+            Text(body, PickupFilter.Label(id), 48, y, 450, 38, 20, blocked ? Muted : Color.white);
+            if (blocked) Text(body, "Ignored", 516, y, 156, 38, 18, Gold);
+            else Button(body, "Ignore", 516, y, 156, () =>
+            {
+                PickupFilter.SetIgnored(Player.m_localPlayer, id, true);
+                notice = "Ignoring " + PickupFilter.Label(id); Build();
+            });
+        }
+        Button(body, "Previous", 0, -334, 175, () => { page = Math.Max(0, page - 1); Build(); });
+        Text(body, (page + 1) + " / " + pages, 194, -334, 285, 38, 17, Muted);
+        Button(body, "Next", 497, -334, 175, () => { page = Math.Min(pages - 1, page + 1); Build(); });
     }
     internal static void Close()
     {
@@ -144,7 +198,7 @@ internal static class ChestUi
         if (blocker) { blocker.SetActive(false); UnityEngine.Object.Destroy(blocker); }
         blocker = null; modal = null; chest = null; machine = null; controls.Clear();
     }
-    internal static void Dispose() { Close(); if (dock) UnityEngine.Object.Destroy(dock); dock = null; dockCanvas = null; dockButtons.Clear(); }
+    internal static void Dispose() { Close(); PickupTab.Dispose(); if (dock) UnityEngine.Object.Destroy(dock); dock = null; dockCanvas = null; dockButtons.Clear(); }
     private static void Build()
     {
         refreshing = true;
@@ -165,19 +219,19 @@ internal static class ChestUi
         rect.localScale = Vector3.one * scale;
         var bg = modal.AddComponent<Image>(); bg.color = new Color(.055f, .07f, .075f, .995f);
         var outline = modal.AddComponent<Outline>(); outline.effectColor = Gold; outline.effectDistance = new Vector2(2, -2);
-        Text(modal.transform, chest ? "CHEST CONFIG" : "MACHINE CONFIG", 24, -16, 570, 38, 28, Gold);
+        Text(modal.transform, pickupMode ? "AUTO PICKUP" : chest ? "CHEST CONFIG" : "MACHINE CONFIG", 24, -16, 570, 38, 28, Gold);
         Button(modal.transform, "Close", 602, -18, 94, Close);
-        Text(modal.transform, chest ? Tier(chest) + " · Changes save immediately" : DisplayMachine(machine) + " · Caps: Enter or Save; other controls save immediately", 24, -60, 670, 28, 18, Muted);
-        var tabs = chest ? new[] { "Storage", "Supply", "Base & Copy" } : new[] { "Production", "Base & Inputs" };
+        Text(modal.transform, pickupMode ? "Choose which item types to leave on the ground" : chest ? Tier(chest) + " · Changes save immediately" : DisplayMachine(machine) + " · Caps: Enter or Save; other controls save immediately", 24, -60, 670, 28, 18, Muted);
+        var tabs = pickupMode ? Array.Empty<string>() : chest ? new[] { "Storage", "Supply", "Base & Copy" } : new[] { "Production", "Base & Inputs" };
         for (int i = 0; i < tabs.Length; i++)
         {
             int t = i; var button = Button(modal.transform, tabs[i], 24 + i * 226, -101, 218, () => { tab = t; page = 0; notice = ""; Build(); });
             if (tab == i) button.GetComponent<Image>().color = new Color(.28f, .23f, .13f);
         }
         body = Rect("Contents", modal.transform, 24, -155, 672, 382);
-        if (chest) ChestBody(); else MachineBody();
-        status = Text(modal.transform, notice.Length > 0 ? notice : Automation.Status(chest ? (Component)chest : machine), 24, -548, 672, 28, 17, Gold);
-        Text(modal.transform, "D-pad: select   A: activate   B: close    •    L-stick + A in inventory: config", 24, -584, 672, 20, 15, Muted);
+        if (pickupMode) PickupBody(); else if (chest) ChestBody(); else MachineBody();
+        status = Text(modal.transform, notice.Length > 0 ? notice : pickupMode ? PickupStatus() : Automation.Status(chest ? (Component)chest : machine), 24, -548, 672, 28, 17, Gold);
+        Text(modal.transform, pickupMode ? "D-pad: select   A: activate   B: close    •    L-stick + Y in inventory: pickup" : "D-pad: select   A: activate   B: close    •    L-stick + A in inventory: config", 24, -584, 672, 20, 15, Muted);
         refreshing = false;
         if (controls.Count > 0 && ZInput.IsGamepadActive()) controls[0].Select();
     }
