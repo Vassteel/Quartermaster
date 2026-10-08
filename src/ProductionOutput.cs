@@ -13,6 +13,7 @@ internal static class ProductionOutput
     {
         internal Scope Previous;
         internal string Group, Item;
+        internal bool Hive;
     }
     internal static Scope Begin(Component machine, ItemDrop output)
     {
@@ -21,9 +22,11 @@ internal static class ProductionOutput
         try
         {
             if (!Plugin.Enabled.Value || !output || !Automation.Owned(machine) || Automation.Settings(machine).Paused) return scope;
+            if (machine is Fermenter && FermenterCompatibility.External) return scope;
             if (machine is CookingStation rack && !rack.m_requireFire) return scope;
             var network = Automation.Network(machine);
             if (network == null) return scope;
+            scope.Hive = machine is Beehive;
             scope.Group = network.Group;
             scope.Item = InventoryTransfers.PrefabId(output);
         }
@@ -48,6 +51,8 @@ internal static class ProductionOutput
         }
         catch (Exception e) { Plugin.Log.LogWarning("Output remains available for pickup; could not schedule collection: " + e.Message); }
     }
+    internal static void HiveStack(ItemDrop item)
+    { if(current?.Hive==true)Created(item); }
     internal static void Track(ItemDrop item)
     {
         var view = Automation.View(item);

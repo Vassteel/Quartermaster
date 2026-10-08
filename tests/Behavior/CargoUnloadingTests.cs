@@ -2,7 +2,7 @@ using Quartermaster;
 using UnityEngine;
 
 // Execute the shipped request loop and transfer code. The host supplies access state and routing.
-public class Ship : MonoBehaviour { public Container Cargo; public string Invalid=""; }
+public class Ship : MonoBehaviour { public Container Cargo;public Container[] Extra=Array.Empty<Container>(); public string Invalid=""; }
 namespace UnityEngine { public static class Time { public static float time; } }
 namespace Quartermaster
 {
@@ -10,7 +10,7 @@ namespace Quartermaster
     {
         internal static Container Hub;
         internal static bool Enabled=true;
-        internal static string ValidateBoat(Ship s,out Container c) { c=s.Cargo;return Enabled?s.Invalid:"Missing mod"; }
+        internal static string ValidateBoat(Ship s,out Container[] c) { c=new[]{s.Cargo}.Concat(s.Extra).ToArray();return Enabled?s.Invalid:"Missing mod"; }
         internal static bool HubInRange(Container h,Ship s)=>h && h.Accessible && h.Settings.Deposit &&
             (h.transform.position-s.transform.position).sqrMagnitude<=Plugin.Range.Value*Plugin.Range.Value;
         internal static Container FindHub(Ship s)=>HubInRange(Hub,s)?Hub:null;
@@ -82,6 +82,31 @@ internal static class CargoUnloadingTests
             request=HelmsmanCargoAccess.BeginUnload(ship);
             check(HelmsmanCargoAccess.UnloadNext(request)==null&&cargo.Inventory.GetAllItems().Single().m_stack==15,"destination exclusion: "+mode);
         }
+        dest.Accessible=true;dest.InUse=false;dest.Settings.Group="home";
+        request=HelmsmanCargoAccess.BeginUnload(ship);
+        hub.Settings.Group="new base";dest.Settings.Group="new base";
+        check(HelmsmanCargoAccess.UnloadNext(request)==null && HelmsmanCargoAccess.Finished(request),
+            "reassigning the hub cannot silently redirect an accepted cargo order");
+        check(cargo.Inventory.GetAllItems().Single().m_stack==15 && dest.Inventory.NrOfItems()==0,
+            "cargo stays aboard when the requested base group changes");
+        hub.Settings.Group=dest.Settings.Group="home";
+        request=HelmsmanCargoAccess.BeginUnload(ship);hub.Settings.Group=" HOME ";
+        check(HelmsmanCargoAccess.UnloadNext(request)?.m_stack==15,
+            "cosmetic group name casing/spacing does not interrupt unloading");
+        var other=Chest();ship.Extra=new[]{other};
+        cargo.Inventory.GetAllItems().Clear();cargo.Inventory.GetAllItems().Add(Item("Unknown",3));
+        other.Inventory.GetAllItems().Add(Item("Stone",7));dest.Inventory=new Inventory(4,1);
+        Time.time+=2;request=HelmsmanCargoAccess.BeginUnload(ship);
+        sample=HelmsmanCargoAccess.UnloadNext(request);
+        check(sample?.m_stack==7&&other.Inventory.NrOfItems()==0&&cargo.Inventory.NrOfItems()==1,
+            "blocked first hold does not block a later hold; one slot moves across the entire ship");
+        check(dest.Inventory.GetAllItems().Sum(i=>i.m_stack)==7,"multi-hold routing conserves total items");
+        other.Inventory.GetAllItems().Add(Item("Wood",2));
+        check(HelmsmanCargoAccess.UnloadNext(request)==null&&other.Inventory.NrOfItems()==1,"multi-hold request retains the two-second sorting cadence");
+        Time.time+=2;HelmsmanCargoAccess.UnloadNext(request);
+        Time.time+=2;HelmsmanCargoAccess.UnloadNext(request);
+        check(HelmsmanCargoAccess.Finished(request)&&HelmsmanCargoAccess.Status(request).Contains("Remaining cargo"),"all holds are checked before reporting unsorted cargo");
+        ship.Extra=Array.Empty<Container>();
         ContainerRegistry.All.Clear();
     }
 }

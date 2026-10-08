@@ -13,11 +13,14 @@ public sealed class GullToss : MonoBehaviour
     private Material[] materials;
     private Color[] colors;
     private int hits;
+    private bool directed,carried,placed;
+    private Vector3 origin,target;
+    private float travelSeconds;
     private static readonly int FloorMask=LayerMask.GetMask("Default","static_solid","piece","terrain","vehicle");
-    internal static void Spawn(Transform owner, ItemDrop.ItemData item, Vector3 position)
+    internal static GullToss Spawn(Transform owner, ItemDrop.ItemData item, Vector3 position)
     {
         Active.RemoveAll(x=>!x);
-        if(Active.Count>=24 || !owner || !item?.m_dropPrefab) return;
+        if(Active.Count>=24 || !owner || !item?.m_dropPrefab) return null;
         // Borrow one mesh and its texture; never instantiate an item prefab or register a drop.
         MeshFilter source=null; MeshRenderer renderer=null;
         foreach(var candidate in item.m_dropPrefab.GetComponentsInChildren<MeshFilter>(true))
@@ -26,10 +29,10 @@ public sealed class GullToss : MonoBehaviour
             if(candidate.sharedMesh && r && r.enabled && r.sharedMaterials.Length>0)
             { source=candidate; renderer=r; break; }
         }
-        if(!source) return;
+        if(!source) return null;
         var mesh=source.sharedMesh;
         float largest=Mathf.Max(mesh.bounds.size.x,Mathf.Max(mesh.bounds.size.y,mesh.bounds.size.z));
-        if(largest<.0001f) return;
+        if(largest<.0001f) return null;
         var root=new GameObject("Quartermaster temporary sorting prop");
         root.transform.position=position;
         var visual=new GameObject("Item mesh only"); visual.transform.SetParent(root.transform,false);
@@ -60,11 +63,44 @@ public sealed class GullToss : MonoBehaviour
         toss.velocity=owner.TransformDirection(new Vector3(Random.Range(-1.2f,1.2f),0,Random.Range(.7f,1.6f)))+Vector3.up*Random.Range(1.3f,2.2f);
         toss.spin=Random.onUnitSphere*Random.Range(140f,330f);
         Active.Add(toss);
+        return toss;
     }
+    internal static void SpawnToward(Transform owner,ItemDrop.ItemData item,Vector3 position,Vector3 target)
+    {
+        var toss=Spawn(owner,item,position);if(!toss)return;
+        toss.directed=true;toss.origin=position;toss.target=target;
+        toss.travelSeconds=Mathf.Clamp(Vector3.Distance(position,target)/4,.35f,.9f);
+    }
+    internal static void Place(Transform owner,ItemDrop.ItemData item,Vector3 position,Vector3 target)
+    {
+        ClearCarried(owner);
+        var prop=Spawn(owner,item,position);if(!prop)return;
+        prop.directed=prop.placed=true;prop.origin=position;prop.target=target;prop.travelSeconds=.65f;
+        prop.spin=Vector3.zero;
+    }
+    internal static void Carry(Transform owner,ItemDrop.ItemData item,Vector3 beak)
+    {
+        // One representative item, regardless of how many units are already safe.
+        ClearCarried(owner);
+        var toss=Spawn(owner,item,beak);if(!toss)return;
+        toss.carried=true;toss.transform.SetParent(owner,true);toss.transform.localScale*=.8f;
+    }
+    private static void ClearCarried(Transform owner)
+    {foreach(var prop in Active.ToArray())if(prop&&prop.owner==owner&&prop.carried)Destroy(prop.gameObject);}
     private void Update()
     {
-        if(!owner || !owner.gameObject.activeInHierarchy || !Plugin.Instance || !Plugin.Enabled.Value || Time.time-born>=4)
+        if(!owner || !owner.gameObject.activeInHierarchy || !Plugin.Instance || !Plugin.Enabled.Value || (!carried&&Time.time-born>=4))
         { Destroy(gameObject); return; }
+        if(carried)return;
+        if(directed)
+        {
+            float p=Mathf.Clamp01((Time.time-born)/travelSeconds);
+            var next=Vector3.Lerp(origin,target,p)+Vector3.up*(Mathf.Sin(p*Mathf.PI)*(placed?.07f:.38f));
+            // Deliberate placement may enter the furniture's solid interaction collider.
+            if((!placed&&Physics.Linecast(transform.position,next,FloorMask,QueryTriggerInteraction.Ignore))||p>=1)
+            {Destroy(gameObject);return;}
+            transform.position=next;transform.Rotate(spin*Time.deltaTime,Space.World);return;
+        }
         float dt=Mathf.Min(Time.deltaTime,.05f);
         if(hits<3)
         {

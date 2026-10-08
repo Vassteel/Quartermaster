@@ -11,3 +11,5 @@
 Environment.props
 .env
 .env.*
+
+/output/

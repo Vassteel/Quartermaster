@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/MachineShortcut.cs" Link="MachineShortcut.cs" />
+    <Compile Include="../../src/SavedStackLimits.cs" Link="SavedStackLimits.cs" />
+    <!-- The game's Mono-only Harmony cannot initialize under this .NET 8 harness. -->
+    <PackageReference Include="Lib.Harmony" Version="2.3.3" />
+  </ItemGroup>
+</Project>

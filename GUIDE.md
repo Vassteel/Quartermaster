@@ -7,9 +7,9 @@ A local playtest build combining learned chest storage, base supply and fermenta
 
 Requires **Helmsman 0.2.8 or newer** and **Quartermaster 0.1.11 or newer**, both enabled. Stop the boat within a Deposit Chest's configured **BaseRange**, close the cargo hold and release the helm. Call the Helmsman gull, wait for it to land, then interact with the gull itself and choose **Unload cargo → Unload cargo to base**. Calling it or docking alone never transfers items.
 
-The gull unloads one occupied cargo slot per step into accessible storage in the nearest Deposit Chest's base group and radius. Quartermaster's learned types, preferred/overflow destinations, accepting-storage settings, access checks and ordinary stack limits apply. Each successful slot queues three temporary thrown props; the next slot waits for those throws. Props bounce and fade; they are decorative and cannot be collected. Unmatched cargo or excess that cannot fit remains aboard.
+The gull unloads one occupied cargo slot per step into accessible storage in the nearest Deposit Chest's base group and radius. Quartermaster's learned types, preferred/overflow destinations, accepting-storage settings, access checks and the configured stack limit apply. Each successful slot queues three temporary thrown props; the next slot waits for those throws. Props bounce and fade; they are decorative and cannot be collected. Unmatched cargo or excess that cannot fit remains aboard.
 
-You can close the dialogue while it works. **Stop unloading**, taking the helm, starting a voyage, opening the hold, leaving the boat/base, losing access or disabling either mod ends the request. A stopped/completed request never restarts automatically; talk to the gull to request another. Boats need one supported cargo hold. Existing multiplayer restrictions remain; multiplayer is untested.
+You can close the dialogue while it works. **Stop unloading**, taking the helm, starting a voyage, opening the hold, leaving the boat/base, losing access or disabling either mod ends the request. A stopped/completed request never restarts automatically; talk to the gull to request another. All cargo holds are checked. A hold awaiting legacy-item migration stops the request. Multiplayer remains unverified.
 
 
 ## AI disclosure
@@ -20,7 +20,7 @@ Quartermaster was developed using OpenAI Codex. Significant portions of the mod 
 
 ## Start using it
 
-1. Disable Hearthkeeper and AutomaticFermenters before enabling Quartermaster. They must not run together. Other overlapping storage, crafting-supply, feeding or refueling mods also need to be disabled for the playtest.
+1. Automatic Fermenters is not compatible with Quartermaster fermenter automation. If detected, Quartermaster leaves fermenters to that mod; its other features still load. Disable Automatic Fermenters to use Quartermaster’s fermenter limits and collection. Other overlapping storage, crafting-supply, feeding or refueling mods also need to be disabled for the playtest.
 2. Build or open an ordinary chest. Click **Chest Config → Use as Deposit Chest**. Every supported chest tier can become a Deposit Chest: wooden, reinforced/iron, personal, black metal and ashwood. It keeps its normal model, build recipe and existing capacity, and gains two animated glowing gears and the inscription **ᛞᛖᛈᛟᛊᛁᛏ ᚲᚺᛖᛊᛏ** on each long face. No extra hammer recipes are required.
 3. Put example items in your other storage chests. Each remembers the item types, including after you take the last item out. Items already present when the mod first loads are learned too.
 4. Put incoming supplies into the Deposit Chest, then close it. Matching storage receives them and briefly glows with a blue outline for three seconds. Further deliveries refresh the outline; it fades away on its own. Unmatched items stay in the Deposit Chest; full or busy storage is reported on hover. Production outputs eject into the world first. After a 60-second pickup window they use this routing, with the Deposit Chest as a fallback.
@@ -34,9 +34,15 @@ Quartermaster was developed using OpenAI Codex. Significant portions of the mod 
 - **Supply:** independent permission for crafting/building/upgrades, fuel, production ingredients and animal feeding. Feeding animals being tamed is an additional opt-in. A Keep Private preset disables all automated withdrawals. Personal-chest and ward access still apply.
 - **Base & Copy:** base group, optional overflow destination, sorting and combining compatible stacks within this chest, and copying settings with or without remembered types. Overflow chests accept any item but do not automatically learn their temporary contents.
 
-Deposit Chests are intake points; processing and feeding draw from ordinary storage. Crafting supply can be controlled independently. Source chests are not rebalanced against each other. There are no storage quantity targets, stack-size overrides, consolidation actions or F6/F7 bindings.
+Deposit Chests are intake points; processing and feeding draw from ordinary storage. Crafting supply can be controlled independently. Source chests are not rebalanced against each other. There are no storage quantity targets, consolidation actions or F6/F7 bindings.
 
-Matching is by exact item prefab, not broad categories. Stacking additionally preserves quality, variant, world level, crafting provenance, durability and custom data. Existing stack sizes are respected.
+Matching is by exact item prefab, not broad categories. Stacking additionally preserves quality, variant, world level, crafting provenance, durability and custom data. Transfers respect each item’s current stack limit.
+
+## Stack sizes
+
+Stackable items default to **1,000 per stack**. Change `Inventory / MaximumStackSize` in `local.valheim.quartermaster.cfg`, or disable `Inventory / EnableStackSizes` to retain other mods’ or native limits. Restart the game after either change. Single-item equipment is untouched.
+
+This is a fixed limit, not a multiplier. Quartermaster applies it after StackIncrease at database startup; it does not change item weight. Lowering the limit never removes items from existing stacks. Split oversized stacks before removing stack mods. On a server, gameplay settings including stack limits synchronize to connected Quartermaster clients without overwriting their local configuration. Matching mod versions are required for testing. Disable StackIncrease when using this replacement.
 
 ## Building coverage
 
@@ -72,26 +78,36 @@ The default radius is **100 metres** around each Deposit Chest. It can be config
 
 This version processes **loaded objects only**, while a player is present. It does not keep distant zones loaded and does not run offline base simulation. Larger radii cannot force unloaded chests or machines to simulate.
 
-Network mutations run only on the current owner. The first accessible Deposit Chest by network ID coordinates its group; only containers and devices already owned by that peer can be changed. Open chests are skipped. Split multiplayer ownership can therefore pause some transfers or machines until ownership reunites. Full dedicated-server and ownership-handoff playtesting remains outstanding; this version is intended for an isolated single-player/local-host playtest first. Do not interpret compile/linkage tests as multiplayer validation.
+Storage uses Valheim's native ownership and access checks. Quartermaster does not reserve chests, intercept opening, or queue ownership handoffs. Automation skips open or non-owned containers. Crafting, upgrades and building collect the exact missing materials from locally writable storage before vanilla payment from the player's inventory.
+
+Make room in your inventory for the required materials. If an action is cancelled after collection, those materials remain with you. For building, hold the build button or place again once materials arrive. Remote-owned storage is not claimed automatically; open the chest normally or carry the materials if needed. Live two-client dedicated-server playtesting remains outstanding; automated checks are not multiplayer validation.
 
 ## Install the local build
 
 Manual: extract the ZIP's `BepInEx` directory into the game/profile root. For r2modman, use its local mod import with the provided ZIP and disable the two original mods in that profile first. This package does not modify installed copies automatically.
 
-On first load, existing Hearthkeeper-recorded chest dimensions are preserved to avoid shrinking occupied storage. Old reserve and consolidation controls are not migrated. Learned types and new settings are stored on chest/machine network objects in the world save. Use a copy of an existing world for the first playtest.
+On first load, previously saved enlarged chest dimensions are preserved to avoid shrinking occupied storage. Old reserve and consolidation controls are not migrated. Learned types and new settings are stored on chest/machine network objects in the world save. Use a copy of an existing world for the first playtest.
 
 ## Validation status
 
 Compiled against the installed Valheim managed assemblies. Automated checks cover binary API and Harmony hook matching, transfer conservation, item metadata, production-cap arithmetic, memory policy and randomized inventories. The Unity UI, gear placement across chest tiers, long-range operation and multiplayer handoffs still need an in-game playtest. See `VALIDATION.md` for exact results and the playtest checklist.
 
-## Deposit gull
+## Deposit owl
 
-A small helmeted gull perches on each Deposit Chest’s visible lid. Its feathers and helmet use normal scene lighting. Deposit sorting handles one occupied slot (its stack) per cycle, normally every two seconds, skipping blocked slots. Each successful slot transfer produces three tiny visual throws of that item; the next visible slot waits for those throws to finish. They bounce on nearby floors or terrain and fade within a second of their first floor bounce; props that miss a floor expire within four seconds. They cannot be picked up and do not change inventory counts. At most 24 props exist locally, with three throws queued per chest.
+A burrowing owl in a cloth waistcoat and leather cap perches on each Deposit Chest’s visible lid. Its materials use normal scene lighting. Deposit sorting handles one occupied slot (its stack) per cycle, normally every two seconds, skipping blocked slots. Each successful slot transfer produces three tiny visual throws of that item; the next visible slot waits for those throws to finish. They bounce on nearby floors or terrain and fade within a second of their first floor bounce; props that miss a floor expire within four seconds. They cannot be picked up and do not change inventory counts. At most 24 props exist locally, with three throws queued per chest.
 
-After the flourish, items without a destination or with full/busy storage make the gull double-peck the lid and glare. Empty chests return to ordinary idle gestures; the gull occasionally glances toward a player within eight metres. Open/inaccessible chests idle. Decorations stop beyond 30 metres, on disabling the mod or unmarking Deposit mode, and are removed with the chest.
+After the flourish, items without a destination or with full/busy storage make the owl double-peck the lid and glare. Empty chests return to ordinary idle gestures; the owl occasionally glances toward a player within eight metres. Open/inaccessible chests idle. Decorations stop beyond 30 metres, on disabling the mod or unmarking Deposit mode, and are removed with the chest.
 
 When sorting cannot progress, a player within 12 metres hears a native gull squawk and sees a local chat question naming an unsorted item. Unassigned items need a sample in a receiving chest or a chest-menu assignment. Full assigned storage prompts “Where else should it go?”; matching storage with room prompts a lid/access check. Only zero remaining slots **and** zero partial-stack capacity across all receiving chests in that loaded base group can trigger the suggestion to add a chest. Deposit Chests and disabled receiving storage are excluded.
 
-An unchanged problem is announced once. Changed problems have a 30-second cooldown per chest, and nearby gulls are spaced at least eight seconds apart. Emptying the Deposit Chest rearms the same future problem. Helmsman's requested cargo unloading uses the same storage explanations.
+An unchanged problem is announced once. Changed problems have a 30-second cooldown per chest, and nearby birds are spaced at least eight seconds apart. Emptying the Deposit Chest rearms the same future problem. Helmsman's requested cargo unloading uses the same storage explanations.
 
 Multiplayer untested. Routing feedback is local to the client processing the chest.
+
+The owl adds exaggerated head tilts and bobs, and sleeps beside an empty chest at night when the player is not close by. Sorting interrupts idle/sleep poses.
+
+## Additional storage mods
+
+Odin's Food Barrels and Dynamic Storage Piles can participate in Quartermaster sorting, crafting supply and machine supply. Empty containers automatically receive the item types defined by their mod. Use Chest Config to turn auto assignment off, ignore individual items or change supply settings.
+
+Quartermaster honors their item restrictions, including customized seed/meat allowlists and Dynamic Storage Piles' restriction toggle. Turning that toggle off permits other learned items; automatic assignment still prefers the pile's intended material. Neither mod is required. Use matching mod versions and server-synchronized settings on multiplayer clients and the server.

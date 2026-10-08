@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
+using System.Linq;
 using System.Reflection.Emit;
 using HarmonyLib;
 
@@ -9,160 +9,66 @@ namespace Quartermaster;
 [HarmonyPatch]
 internal static class CraftingPatches
 {
-	private struct NamedRemovalState
-	{
-		internal int Requested;
+    [ThreadStatic] internal static bool LocalCountsOnly;
+    private static bool StorageEnabled => Plugin.Enabled.Value && Plugin.CraftFromContainers.Value;
 
-		internal int Before;
-	}
+    // Warehouse counts are advisory for the UI and fetch planning only. Crafting
+    // and building first fetch materials, then vanilla alone pays from the player.
+    // Never create output and attempt to cover an unpaid shortfall afterwards.
 
-	internal static bool CraftingRemoval;
+    [HarmonyPatch(typeof(Player), "HaveRequirementItems"), HarmonyTranspiler]
+    private static IEnumerable<CodeInstruction> RecipeCounts(IEnumerable<CodeInstruction> instructions) => RouteCounts(instructions);
 
-	[HarmonyPatch(typeof(InventoryGui), "DoCrafting")]
-	[HarmonyPrefix]
-	private static void CraftingPrefix()
-	{
-		CraftingRemoval = Plugin.Enabled.Value && Plugin.CraftFromContainers.Value;
-	}
+    [HarmonyPatch(typeof(Player), "HaveRequirements", new[] { typeof(Piece), typeof(Player.RequirementMode) }), HarmonyTranspiler]
+    private static IEnumerable<CodeInstruction> BuildingCounts(IEnumerable<CodeInstruction> instructions) => RouteCounts(instructions);
 
-	[HarmonyPatch(typeof(InventoryGui), "DoCrafting")]
-	[HarmonyFinalizer]
-	private static Exception CraftingFinalizer(Exception __exception)
-	{
-		CraftingRemoval = false;
-		return __exception;
-	}
+    [HarmonyPatch(typeof(InventoryGui), "SetupRequirement"), HarmonyTranspiler]
+    private static IEnumerable<CodeInstruction> DisplayCounts(IEnumerable<CodeInstruction> instructions) => RouteCounts(instructions);
 
-	[HarmonyPatch(typeof(Player), "ConsumeResources")]
-	[HarmonyPrefix]
-	private static bool ConsumeResourcesPrefix(Player __instance, Piece.Requirement[] requirements, int qualityLevel, int itemQuality, int multiplier)
-	{
-		if (!Plugin.Enabled.Value || !Plugin.CraftFromContainers.Value || __instance != Player.m_localPlayer)
-		{
-			return true;
-		}
-		CraftingStation currentCraftingStation = __instance.GetCurrentCraftingStation();
-		foreach (Piece.Requirement requirement in requirements)
-		{
-			if ((!(currentCraftingStation != null) || currentCraftingStation.m_upgrader == requirement.m_upgraderResource) && (!(currentCraftingStation == null) || !requirement.m_upgraderResource) && !(requirement.m_resItem == null))
-			{
-				int num = requirement.GetAmount(qualityLevel) * multiplier;
-				if (num > 0)
-				{
-					string name = requirement.m_resItem.m_itemData.m_shared.m_name;
-					WarehouseService.RemovePlayerThenNearby(__instance, name, num, itemQuality, matchWorldLevel: true);
-				}
-			}
-		}
-		return false;
-	}
+    [HarmonyPatch(typeof(Player), "GetFirstRequiredItem"), HarmonyTranspiler]
+    private static IEnumerable<CodeInstruction> IngredientSelection(IEnumerable<CodeInstruction> instructions)
+    {
+        var native=AccessTools.Method(typeof(Inventory),"GetItem",new[]{typeof(string),typeof(int),typeof(bool)});
+        var combined=AccessTools.Method(typeof(CraftingPatches),nameof(FindIngredientIncludingWarehouse));
+        foreach(var instruction in RouteCounts(instructions))
+        {
+            if(instruction.Calls(native)){instruction.opcode=OpCodes.Call;instruction.operand=combined;}
+            yield return instruction;
+        }
+    }
+    internal static ItemDrop.ItemData FindIngredientIncludingWarehouse(Inventory inventory,string name,int quality,bool equipped)
+    {
+        var carried=inventory.GetItem(name,quality,equipped);
+        var player=Player.m_localPlayer;
+        if(carried!=null||LocalCountsOnly||!StorageEnabled||!player||!ReferenceEquals(inventory,player.GetInventory()))return carried;
+        foreach(var chest in WarehouseService.CraftStores(player,true))
+        {
+            if(InventoryTransfers.AvailableInContainer(chest,name,quality,true)<1)continue;
+            var item=chest.GetInventory().GetAllItems().FirstOrDefault(i=>i.m_shared.m_name==name&&i.m_quality==quality&&i.m_worldLevel>=Game.m_worldLevel&&i.m_stack>0);
+            if(item!=null)return item;
+        }
+        return null;
+    }
 
-	[HarmonyPatch(typeof(Inventory), "RemoveItem", new Type[]
-	{
-		typeof(string),
-		typeof(int),
-		typeof(int),
-		typeof(bool)
-	})]
-	[HarmonyPrefix]
-	private static void NamedRemovePrefix(Inventory __instance, string name, ref int amount, int itemQuality, bool worldLevelBased, out NamedRemovalState __state)
-	{
-		__state = new NamedRemovalState
-		{
-			Requested = amount,
-			Before = 0
-		};
-		if (amount > 0)
-		{
-			if (CraftingRemoval && Player.m_localPlayer != null && __instance == Player.m_localPlayer.GetInventory())
-			{
-				__state.Before = InventoryTransfers.CountType(__instance, name, itemQuality, worldLevelBased);
-			}
+    private static IEnumerable<CodeInstruction> RouteCounts(IEnumerable<CodeInstruction> instructions)
+    {
+        var native = AccessTools.Method(typeof(Inventory), "CountItems", new[] { typeof(string), typeof(int), typeof(bool) });
+        var combined = AccessTools.Method(typeof(CraftingPatches), nameof(CountItemsIncludingWarehouse));
+        // Work on copies, retaining both branch targets and exception boundaries.
+        return instructions.Select(original =>
+        {
+            var copy = new CodeInstruction(original);
+            if (copy.Calls(native)) { copy.opcode = OpCodes.Call; copy.operand = combined; }
+            return copy;
+        });
+    }
 
-		}
-	}
-
-	[HarmonyPatch(typeof(Inventory), "RemoveItem", new Type[]
-	{
-		typeof(string),
-		typeof(int),
-		typeof(int),
-		typeof(bool)
-	})]
-	[HarmonyPostfix]
-	private static void NamedRemovePostfix(Inventory __instance, string name, int itemQuality, bool worldLevelBased, NamedRemovalState __state)
-	{
-		if (__state.Requested > 0 && CraftingRemoval && !(Player.m_localPlayer == null) && __instance == Player.m_localPlayer.GetInventory())
-		{
-			int num = InventoryTransfers.CountType(__instance, name, itemQuality, worldLevelBased);
-			int num2 = Math.Max(0, __state.Before - num);
-			int num3 = Math.Max(0, __state.Requested - num2);
-			if (num3 > 0)
-			{
-				WarehouseService.RemoveNearby(Player.m_localPlayer, name, num3, itemQuality, worldLevelBased);
-			}
-		}
-	}
-
-	[HarmonyPatch(typeof(Player), "HaveRequirementItems")]
-	[HarmonyTranspiler]
-	private static IEnumerable<CodeInstruction> RecipeCountsTranspiler(IEnumerable<CodeInstruction> instructions)
-	{
-		return ReplaceCountCalls(instructions);
-	}
-
-	[HarmonyPatch(typeof(Player), "HaveRequirements", new Type[]
-	{
-		typeof(Piece),
-		typeof(Player.RequirementMode)
-	})]
-	[HarmonyTranspiler]
-	private static IEnumerable<CodeInstruction> BuildCountsTranspiler(IEnumerable<CodeInstruction> instructions)
-	{
-		return ReplaceCountCalls(instructions);
-	}
-
-	[HarmonyPatch(typeof(InventoryGui), "SetupRequirement")]
-	[HarmonyTranspiler]
-	private static IEnumerable<CodeInstruction> RequirementUiTranspiler(IEnumerable<CodeInstruction> instructions)
-	{
-		return ReplaceCountCalls(instructions);
-	}
-
-	private static IEnumerable<CodeInstruction> ReplaceCountCalls(IEnumerable<CodeInstruction> instructions)
-	{
-		MethodInfo original = AccessTools.Method(typeof(Inventory), "CountItems", new Type[3]
-		{
-			typeof(string),
-			typeof(int),
-			typeof(bool)
-		});
-		MethodInfo replacement = AccessTools.Method(typeof(CraftingPatches), "CountItemsIncludingWarehouse");
-		foreach (CodeInstruction instruction in instructions)
-		{
-			if (instruction.Calls(original))
-			{
-				yield return new CodeInstruction(OpCodes.Call, replacement).MoveLabelsFrom(instruction);
-			}
-			else
-			{
-				yield return instruction;
-			}
-		}
-	}
-
-	internal static int CountItemsIncludingWarehouse(Inventory inventory, string name, int quality, bool matchWorldLevel)
-	{
-		int num = inventory.CountItems(name, quality, matchWorldLevel);
-		if (!Plugin.Enabled.Value || !Plugin.CraftFromContainers.Value || Player.m_localPlayer == null)
-		{
-			return num;
-		}
-		if (inventory != Player.m_localPlayer.GetInventory())
-		{
-			return num;
-		}
-		return num + WarehouseService.CountAvailableNearPlayer(name, quality, matchWorldLevel);
-	}
-
+    internal static int CountItemsIncludingWarehouse(Inventory inventory, string name, int quality, bool matchWorldLevel)
+    {
+        int carried = inventory.CountItems(name, quality, matchWorldLevel);
+        var player = Player.m_localPlayer;
+        if (LocalCountsOnly || !StorageEnabled || !player || !ReferenceEquals(inventory, player.GetInventory())) return carried;
+        long combined = (long)carried + WarehouseService.CountAvailableNearPlayer(name, quality, matchWorldLevel);
+        return (int)Math.Min(int.MaxValue, combined);
+    }
 }

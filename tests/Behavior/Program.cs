@@ -9,6 +9,23 @@ string Fingerprint(ItemDrop.ItemData i)=>$"{i.m_dropPrefab.name}:{i.m_quality}:{
 Dictionary<string,long> Payload(params Inventory[] inventories)=>inventories.SelectMany(i=>i.GetAllItems()).GroupBy(Fingerprint).ToDictionary(g=>g.Key,g=>g.Sum(i=>(long)i.m_stack));
 void Conserved(Dictionary<string,long> before, params Inventory[] inventories) { var after=Payload(inventories);Assert(before.Count==after.Count&&before.All(p=>after.TryGetValue(p.Key,out var n)&&n==p.Value),"quantity and metadata conserved"); }
 void Valid(Inventory inventory) { var items=inventory.GetAllItems();Assert(items.All(i=>i.m_stack>0&&i.m_stack<=i.m_shared.m_maxStackSize),"native stack limits");Assert(items.All(i=>i.m_gridPos.x>=0&&i.m_gridPos.x<inventory.GetWidth()&&i.m_gridPos.y>=0&&i.m_gridPos.y<inventory.GetHeight()),"valid slots");Assert(items.Select(i=>(i.m_gridPos.x,i.m_gridPos.y)).Distinct().Count()==items.Count,"unique slots"); }
+CraftSupplyTests.Run(Assert);
+StackCompatibilityTests.Run(Assert);
+ChestVisitTests.Run(Assert);
+Assert(Policy.WithinFeedingRange(100,10),"feeding radius includes boundary");
+Assert(!Policy.WithinFeedingRange(100.01f,10),"feeding excludes animals across base");
+Assert(!Policy.WithinFeedingRange(float.NaN,10),"invalid animal distance excluded");
+Assert(Policy.FeedingRadius(0)==10&&Policy.FeedingRadius(float.NaN)==10,"old or invalid range uses ten metres");
+Assert(Policy.FeedingRadius(500)==100&&Policy.FeedingRadius(.1f)==1,"feeding range clamped");
+var feedSettings=new ChestSettings{FeedingRange=7};
+Assert(JsonSerializer.Deserialize<ChestSettings>(JsonSerializer.Serialize(feedSettings,new JsonSerializerOptions{IncludeFields=true}),new JsonSerializerOptions{IncludeFields=true}).FeedingRange==7,"feeding radius roundtrip");
+var defaultDeposit=ChestDefaults.Create(ChestDefaults.DepositPrefab);
+Assert(defaultDeposit.Deposit && !defaultDeposit.Accepts("Wood") && !defaultDeposit.Observe(new[]{"Wood"}),"new dedicated chest sorts instead of learning or receiving routed items");
+Assert(!ChestDefaults.Create("piece_chest_wood").Deposit,"ordinary chests retain normal storage defaults");
+defaultDeposit.Deposit=false;defaultDeposit.Group="Harbor";
+var savedDeposit=JsonSerializer.Serialize(defaultDeposit,new JsonSerializerOptions{IncludeFields=true});
+var restoredDeposit=JsonSerializer.Deserialize<ChestSettings>(savedDeposit,new JsonSerializerOptions{IncludeFields=true});
+Assert(!restoredDeposit.Deposit && restoredDeposit.Group=="Harbor","saved user settings override dedicated chest defaults");
 var chest = new ChestSettings();
 Assert(chest.Observe(new[]{"Wood","Wood","Coal"}),"learn manually placed types");
 Assert(chest.Remembered.Count==2,"no duplicate memory");
@@ -25,7 +42,9 @@ Assert(Policy.SameGroup(" Home ","home")&&!Policy.SameGroup("Home","Outpost"),"b
 Assert(Policy.ProtectedWood("FineWood")&&Policy.ProtectedWood("RoundLog")&&!Policy.ProtectedWood("Wood"),"valuable wood protection");
 // Cap edits belong to output IDs, even when visible rows/pages change order between saves.
 var machineCaps = new MachineSettings();
-var expectedCaps = new Dictionary<string,int> { ["Copper"]=200, ["Tin"]=200, ["Iron"]=200 };
+Assert(machineCaps.Cap("Coal")==0&&machineCaps.Caps.Count==0,"unconfigured production defaults to paused without creating a saved limit");
+Assert(Policy.BatchesAllowed(machineCaps.Cap("Coal"),0,0,1,1)==0,"unconfigured output cannot start a batch");
+var expectedCaps = new Dictionary<string,int> { ["Copper"]=0, ["Tin"]=0, ["Iron"]=0 };
 foreach(var edit in new[]{("Copper",250),("Copper",800),("Tin",350),("Iron",900),("Copper",125),("Tin",0),("Iron",100000),("Copper",700)})
 {
     machineCaps.SetCap(edit.Item1,edit.Item2); expectedCaps[edit.Item1]=edit.Item2;
@@ -109,4 +128,6 @@ GullTests.Run(Assert);
 SlotSortingTests.Run(Assert);
 CargoUnloadingTests.Run(Assert);
 GullFeedbackTests.Run(Assert);
+OverflowTests.Run(Assert);
+OwlPickupTests.Run(Assert);
 Console.WriteLine($"PASS: {checks} assertions; station coverage, learned storage, forgotten-item persistence, routing exclusions, production cap scenarios, metadata preservation, callbacks and 1000 randomized inventory trials.");

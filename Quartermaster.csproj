@@ -4,8 +4,10 @@
     <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages>
     <LangVersion>latest</LangVersion>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <!-- Resolve against the game, never DLLs produced by the .NET 8 test harnesses. -->
+    <AssemblySearchPaths>{HintPathFromItem};{TargetFrameworkDirectory}</AssemblySearchPaths>
     <AssemblyName>Quartermaster</AssemblyName>
-    <Version>0.1.16</Version>
+    <Version>0.1.64</Version>
     <GamePath Condition="'$(GamePath)' == ''">/home/deck/.steam/steam/steamapps/common/Valheim</GamePath>
     <ManagedPath>$(GamePath)/valheim_Data/Managed</ManagedPath>
     <FrameworkPathOverride>$(ManagedPath)</FrameworkPathOverride>
@@ -14,15 +16,36 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="src/**/*.cs" />
+    <EmbeddedResource Include="assets/ui/pickup-filter.png" LogicalName="Quartermaster.Ui.pickup-filter" />
+    <EmbeddedResource Include="assets/modular-shelves/*.bin" LogicalName="Quartermaster.ModularShelf.%(Filename)" />
+    <EmbeddedResource Include="assets/drawer-cabinets/*.bin" LogicalName="Quartermaster.DrawerCabinet.%(Filename)" />
+    <EmbeddedResource Include="assets/mead-cabinet/model.bin" LogicalName="Quartermaster.MeadCabinet.model" />
+    <EmbeddedResource Include="assets/apothecary/model.bin" LogicalName="Quartermaster.Apothecary.model" />
+    <EmbeddedResource Include="assets/apothecary/*.png" LogicalName="Quartermaster.Apothecary.%(Filename)" />
+    <EmbeddedResource Include="assets/clay/model.bin" LogicalName="Quartermaster.Clay.model" />
+    <EmbeddedResource Include="assets/clay/albedo.png" LogicalName="Quartermaster.Clay.albedo" />
+    <EmbeddedResource Include="assets/clay/icon.png" LogicalName="Quartermaster.Clay.icon" />
+    <EmbeddedResource Include="assets/ledger/icon.png" LogicalName="Quartermaster.Ledger.icon" />
+    <EmbeddedResource Include="assets/ledger/model.bin" LogicalName="Quartermaster.Ledger.model" />
+    <EmbeddedResource Include="assets/deposit-chest/model.bin" LogicalName="Quartermaster.DepositChest.model" />
+    <EmbeddedResource Include="assets/birds/surface.png" LogicalName="VikingBirds.surface.png" />
+    <EmbeddedResource Include="assets/postal/mailbox/model.bin" LogicalName="Quartermaster.Mailbox.model" />
+    <EmbeddedResource Include="assets/postal/eagle/model.bin" LogicalName="Quartermaster.Eagle.model" />
+    <EmbeddedResource Include="assets/postal/eagle/albedo.png" LogicalName="Quartermaster.Eagle.albedo" />
+    <EmbeddedResource Include="assets/owl/model.bin" LogicalName="Quartermaster.Owl.model" />
+    <EmbeddedResource Include="assets/owl/albedo.png" LogicalName="Quartermaster.Owl.albedo" />
+    <Reference Include="Newtonsoft.Json"><HintPath>$(ManagedPath)/Newtonsoft.Json.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="netstandard"><HintPath>$(ManagedPath)/netstandard.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="System.Net.Http"><HintPath>$(ManagedPath)/System.Net.Http.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="System.IO.Compression"><HintPath>$(ManagedPath)/System.IO.Compression.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="assembly_valheim"><HintPath>$(ManagedPath)/assembly_valheim.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="assembly_utils"><HintPath>$(ManagedPath)/assembly_utils.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Jotunn"><HintPath>$(GamePath)/BepInEx/plugins/ValheimModding-Jotunn/Jotunn.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="BepInEx"><HintPath>$(BepInExPath)/BepInEx.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="0Harmony"><HintPath>$(BepInExPath)/0Harmony.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine"><HintPath>$(ManagedPath)/UnityEngine.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(ManagedPath)/UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.AssetBundleModule"><HintPath>$(ManagedPath)/UnityEngine.AssetBundleModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.AudioModule"><HintPath>$(ManagedPath)/UnityEngine.AudioModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.AnimationModule"><HintPath>$(ManagedPath)/UnityEngine.AnimationModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.ParticleSystemModule"><HintPath>$(ManagedPath)/UnityEngine.ParticleSystemModule.dll</HintPath><Private>false</Private></Reference>

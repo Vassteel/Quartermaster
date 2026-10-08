@@ -10,14 +10,12 @@ import subprocess
 import tempfile
 import time
 import zipfile
-import yaml
 
 PROJECT = Path(__file__).resolve().parents[1]
 GAME = Path('/home/deck/.local/share/Steam/steamapps/common/Valheim')
-MANAGER = Path('/home/deck/.var/app/io.github.ebkr.r2modman/config/r2modmanPlus-local/Valheim')
-PROFILE = MANAGER / 'profiles/Mods'
+MANAGER = Path('/home/deck/Games/Gale/valheim')
+PROFILE = MANAGER / 'profiles/Test'
 DISABLE = {
-    'MaddCatter365-Hearthkeeper': 'Hearthkeeper.dll',
     'TastyChickenLegs-AutomaticFermenters': 'AutomaticFermenters.dll',
     'TastyChickenLegs-TimedTorchesStayLit': 'TimedTorchesStayLit.dll',
     'TastyChickenLegs-CandlesForever': 'CandlesForever.dll',
@@ -28,7 +26,7 @@ def digest(data):
     return hashlib.sha256(data).hexdigest() if data is not None else None
 
 def closed():
-    for name in ('valheim.exe', 'valheim.x86_64', 'r2modman'):
+    for name in ('valheim.exe', 'valheim.x86_64'):
         result = subprocess.run(['pgrep', '-xi', name], capture_output=True, text=True)
         if result.returncode == 0:
             raise RuntimeError(f'{name} is running; close it before installation or restore.')
@@ -61,15 +59,13 @@ def plan():
         assert z.testzip() is None
         files = {Path(n).name: z.read(n) for n in z.namelist() if not n.endswith('/')}
     assert files['Quartermaster.dll'] == (PROJECT / 'bin/Release/net472/Quartermaster.dll').read_bytes()
-    manifest = json.loads(files['manifest.json'])
-    manifest['author'] = 'local'
-    files['manifest.json'] = (json.dumps(manifest, indent=2) + '\n').encode()
-    version = manifest['version_number']
-    changes = {}
-    for root in (GAME / 'BepInEx/plugins/Quartermaster', PROFILE / 'BepInEx/plugins/local-Quartermaster', MANAGER / 'cache/local-Quartermaster' / version):
-        for name, data in files.items():
-            changes[root / name] = data
-    for root in (GAME, PROFILE):
+    # Update Gale's existing plugin in place. Do not rewrite its database or
+    # published-version cache for a local development build.
+    candidates = list((PROFILE / 'BepInEx/plugins').rglob('Quartermaster.dll'))
+    if len(candidates) != 1:
+        raise RuntimeError(f'Expected one Quartermaster installation in Gale profile {PROFILE}; found {len(candidates)}.')
+    changes = {candidates[0]: files['Quartermaster.dll']}
+    for root in (PROFILE,):
         for folder, filename in {**DISABLE, **OPTIONAL_DISABLE}.items():
             source = root / 'BepInEx/plugins' / folder / filename
             target = source.with_name(source.name + '.old')
@@ -78,13 +74,14 @@ def plan():
                     raise RuntimeError(f'Different disabled copy already exists: {target}')
                 changes[target] = source.read_bytes()
                 changes[source] = None
-            elif folder in DISABLE:
-                assert target.exists(), f'Missing installed mod: {source}'
+            # A subsequent update may follow removal of an old conflicting mod.
+            # Nothing needs disabling when both the active and backup DLL are absent.
         cfg = root / 'BepInEx/config/r4v9n1.lightmyfire.cfg'
-        text = cfg.read_bytes().decode() if cfg.exists() else '[General]\nEnabled = true\n'
+        exists = cfg.exists()
+        text = cfg.read_bytes().decode() if exists else '[General]\nEnabled = true\n'
         text, count = re.subn(r'(?m)^(Enabled[ \t]*=[ \t]*)(?:true|false)\b', r'\g<1>false', text)
         assert count == 1, f'Unexpected LightMyFire configuration: {cfg}'
-        changes[cfg] = text.encode()
+        if exists: changes[cfg] = text.encode()
         cfg = root / 'BepInEx/config/local.valheim.quartermaster.cfg'
         text = cfg.read_bytes().decode() if cfg.exists() else '[General]\n'
         if not re.search(r'(?m)^HideCheatItemMessages[ \t]*=', text):
@@ -95,17 +92,6 @@ def plan():
             else:
                 text += newline + '[General]' + newline + setting
         changes[cfg] = text.encode()
-    mods_path = PROFILE / 'mods.yml'
-    mods = yaml.safe_load(mods_path.read_text())
-    for m in mods:
-        if m.get('enabled') and m['name'] not in DISABLE:
-            assert not any(any(d.startswith(n + '-') for n in DISABLE) for d in m.get('dependencies', [])), f"Dependent mod: {m['name']}"
-        if m['name'] in DISABLE or m['name'].split('-')[-1] in OPTIONAL_DISABLE:
-            m['enabled'] = False
-    mods = [m for m in mods if m['name'] != 'local-Quartermaster']
-    major, minor, patch = map(int, version.split('.'))
-    mods.append(dict(manifestVersion=1, name='local-Quartermaster', authorName='local', websiteUrl=manifest['website_url'], displayName='Quartermaster', description=manifest['description'], gameVersion='0', networkMode='both', packageType='other', installMode='managed', installedAtTime=int(time.time()*1000), loaders=[], dependencies=manifest['dependencies'], incompatibilities=[], optionalDependencies=[], versionNumber=dict(major=major, minor=minor, patch=patch), enabled=True, onlineSource=False))
-    changes[mods_path] = yaml.safe_dump(mods, sort_keys=False, allow_unicode=True).encode()
     return {p: data for p, data in changes.items() if (p.read_bytes() if p.exists() else None) != data}
 
 def restore(backup, apply):

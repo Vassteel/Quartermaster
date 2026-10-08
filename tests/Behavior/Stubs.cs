@@ -10,7 +10,7 @@ public class ItemDrop
     public Prefab gameObject;
     public ItemData m_itemData;
     public static implicit operator bool(ItemDrop item) => item != null;
-    public class SharedData { public string m_name; public int m_maxStackSize = 50; }
+    public class SharedData { public bool m_useDurability; public string m_name; public int m_maxStackSize = 50; }
     public class ItemData
     {
         public Prefab m_dropPrefab;
@@ -30,6 +30,7 @@ public sealed class Inventory
 {
     readonly List<ItemDrop.ItemData> items = new(); readonly int width, height;
     public int Notifications; public Action OnChanged;
+    public Inventory(string name, object background, int w, int h) : this(w,h) {}
     public Inventory(int w, int h) { width=w; height=h; }
     public List<ItemDrop.ItemData> GetAllItems() => items;
     public int GetWidth()=>width; public int GetHeight()=>height; public int NrOfItems()=>items.Count;
@@ -44,7 +45,7 @@ namespace Quartermaster
     {
         internal static readonly List<Container> All = new();
         internal static Inventory SafeInventory(Container c)=>c.Inventory;
-        internal static int ReserveFor(Container c,string name)=>0;
+
         internal static bool Accessible(Container c)=>c.Accessible;
         internal static ChestSettings GetSettings(Container c)=>c.Settings;
         internal static Container OwnerOf(Inventory inventory)=>All.FirstOrDefault(c=>c.Inventory==inventory);
@@ -57,5 +58,14 @@ namespace Quartermaster
         internal static TestLog Log=new();
         internal static TestSetting<bool> Enabled=new(true), ExtendStationCoverage=new(true), ClearCheatItemTagsOnLoad=new(true), HideCheatItemMessages=new(true);
         internal static TestSetting<float> Range=new(100f);
+    }
+}
+
+namespace Quartermaster
+{
+    // Persistence itself is exercised by the dedicated CraftPayment harness.
+    internal static class CraftStorageAccess
+    {
+        internal static void Save(Container chest) { }
     }
 }

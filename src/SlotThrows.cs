@@ -12,5 +12,6 @@ internal sealed class SlotThrows
         Remaining--; next=now+.65f;
         return true;
     }
+    internal void Delay(float until) { next=until; }
     internal void Clear() { Remaining=0; }
 }

@@ -18,14 +18,28 @@ public sealed class DepositGull : MonoBehaviour
         gull.pendingNotice=message;
         if(empty)gull.notices.Resolved();
     }
+    internal string HoverStatus
+    {
+        get
+        {
+            if(courier!=null&&courier.Away)
+                return courier.Status+(courier.Workstation?" "+ChestUi.DisplayMachine(courier.Workstation):"");
+            if(mood==DepositGullMood.Sorting)return "Sorting deposits";
+            if(mood==DepositGullMood.NeedsAttention)return "Waiting: "+Automation.Status(chest);
+            return "Resting on the Deposit Chest";
+        }
+    }
     private Container chest;
     private GameObject bird;
     private Material worldMaterial;
     private Transform lightAnchor;
     private Vector3 perchLocal;
     private bool perchedOnOpenLid;
-    private readonly List<Material> birdMaterials=new List<Material>();
-    private GullMeshRig rig;
+    private QuartermasterChestModel chestModel;
+    private readonly ChestSortVisit visit=new ChestSortVisit();
+    private QuartermasterOwl rig;
+    private OwlCourier courier;
+    private float nextVoice,nextCourierWarning;
     private readonly DepositGullState state = new DepositGullState();
     private GullPose blended;
     private DepositGullMood mood;
@@ -33,20 +47,17 @@ public sealed class DepositGull : MonoBehaviour
     private bool creationWarning;
     private bool canWork, hasItems, visible;
     private Bounds bounds;
-    private ItemDrop.ItemData sample;
-    private readonly SlotThrows throws=new SlotThrows();
+    private readonly OwlSortReplay<ItemDrop.ItemData> sorting=new OwlSortReplay<ItemDrop.ItemData>();
     internal static bool ReadyForNextSlot(Container chest)
     {
-        var gull=chest ? chest.GetComponent<DepositGull>() : null;
-        // Visible work gets its full three throws. Unloaded/missing/distant cosmetics
-        // cannot stop the storage network from processing its next slot.
-        return !gull || !gull.bird || !gull.visible || gull.throws.Remaining==0;
+        // Presentation never schedules or blocks actual inventory transfers.
+        return true;
     }
     internal static DepositGull Attach(Container chest, Bounds bounds)
     {
         var gull=chest.GetComponent<DepositGull>();
         if(!gull) gull=chest.gameObject.AddComponent<DepositGull>();
-        gull.chest=chest; gull.bounds=bounds;
+        gull.chest=chest; gull.bounds=bounds; gull.chestModel=chest.GetComponent<QuartermasterChestModel>();
         return gull;
     }
     internal static void Report(Container chest, int moved, bool blocked, ItemDrop.ItemData item)
@@ -56,16 +67,12 @@ public sealed class DepositGull : MonoBehaviour
         gull.state.Report(Time.time,moved,blocked);
         if(moved>0)
         {
-            // Three throws for the processed slot, independent of its stack quantity.
-            gull.sample=item?.Clone();
-            gull.throws.Begin(Time.time); gull.started=Time.time;
+            // Queue even while away; the next home visit replays this transfer.
+            gull.sorting.Report(item?.Clone());
         }
     }
     private void CreateBird()
     {
-        var prefab=ZNetScene.instance ? ZNetScene.instance.GetPrefab("Seagal") : null;
-        var source=prefab ? prefab.GetComponent<RandomFlyingBird>() : null;
-        if(!source || !source.m_landedModel) return;
         // Read the actual chest renderer: its bundled shader may not be in Shader.Find.
         worldMaterial=null;lightAnchor=chest.transform;
         foreach(var renderer in chest.GetComponentsInChildren<MeshRenderer>(true))
@@ -73,44 +80,18 @@ public sealed class DepositGull : MonoBehaviour
                 if(material && material.shader && material.shader.name=="Custom/Piece")
                 { worldMaterial=material;lightAnchor=renderer.probeAnchor ? renderer.probeAnchor : renderer.transform;break; }
         if(!worldMaterial)throw new InvalidOperationException("Chest's world-lit material is not available yet.");
-        bird=new GameObject("Quartermaster deposit gull");
-        // Keep this local actor outside the chest hierarchy: chest-targeted glow mods enumerate
-        // every child renderer, including accessories, and otherwise make the bird emissive.
+        bird=new GameObject("Quartermaster deposit owl perch");
+        // A separate root prevents chest glow effects from touching the owl's materials.
         perchLocal=ChestPerch.OnVisibleLid(chest,bounds);
         perchedOnOpenLid=chest.m_open && chest.m_open.activeInHierarchy;
         FollowChest();
-        // A slightly smaller gull fits the lid on all vanilla chest tiers.
-        var model=CopyStaticVisual(source.m_landedModel.transform,bird.transform);
-        if(!model.GetComponentInChildren<MeshRenderer>()) { Destroy(bird); bird=null; return; }
-        ChestPerch.SetFeetOnPerch(model);
-        rig=GullMeshRig.Create(model);
-        foreach(var renderer in bird.GetComponentsInChildren<Renderer>())renderer.probeAnchor=lightAnchor;
-        Plugin.Log.LogInfo("Deposit gull uses chest shader "+worldMaterial.shader.name+" with emission disabled and the chest lighting anchor.");
+        rig=new QuartermasterOwl(bird.transform,worldMaterial);
+        rig.Probes(bird.transform);
+        courier=new OwlCourier(chest,bird.transform,rig);
+        bird.AddComponent<OwlHover>().Owner=this;
+        nextVoice=Time.time+UnityEngine.Random.Range(75f,120f);
+        Plugin.Log.LogInfo("Deposit owl uses the detailed shared model, material atlas and distance LOD.");
         started=Time.time; nextLook=Time.time+UnityEngine.Random.Range(2f,5f);
-    }
-    private GameObject CopyStaticVisual(Transform source, Transform parent)
-    {
-        // Construct renderer nodes from shared assets; none of the prefab's scripts can awaken.
-        var node=new GameObject(source.name); node.transform.SetParent(parent,false);
-        node.transform.localPosition=source.localPosition; node.transform.localRotation=source.localRotation;
-        node.transform.localScale=source.localScale;
-        var mesh=source.GetComponent<MeshFilter>(); var renderer=source.GetComponent<MeshRenderer>();
-        if(mesh && mesh.sharedMesh && renderer && renderer.enabled)
-        {
-            node.AddComponent<MeshFilter>().sharedMesh=mesh.sharedMesh;
-            var originals=renderer.sharedMaterials; var materials=new Material[originals.Length];
-            for(int i=0;i<originals.Length;i++)
-            {
-                if(!originals[i]) continue;
-                var material=GullMaterials.Feathers(originals[i],worldMaterial);
-                materials[i]=material; birdMaterials.Add(material);
-            }
-            var copy=node.AddComponent<MeshRenderer>(); copy.sharedMaterials=materials;
-            copy.shadowCastingMode=UnityEngine.Rendering.ShadowCastingMode.On; copy.receiveShadows=true;
-            copy.probeAnchor=lightAnchor;
-        }
-        foreach(Transform child in source) if(child.gameObject.activeSelf) CopyStaticVisual(child,node.transform);
-        return node;
     }
     private void LateUpdate()
     {
@@ -120,7 +101,8 @@ public sealed class DepositGull : MonoBehaviour
         {
             nextSense=Time.time+.5f;
             visible=ContainerRegistry.GetSettings(chest).Deposit && Player.m_localPlayer &&
-                (Player.m_localPlayer.transform.position-transform.position).sqrMagnitude<900;
+                ((Player.m_localPlayer.transform.position-transform.position).sqrMagnitude<2025 ||
+                 (bird&&(Player.m_localPlayer.transform.position-bird.transform.position).sqrMagnitude<2025));
             hasItems=chest.GetInventory()!=null && chest.GetInventory().NrOfItems()>0;
             canWork=visible && ContainerRegistry.IsUsable(chest,false);
             if(visible && !bird && Time.time>=nextCreateAttempt)
@@ -129,20 +111,50 @@ public sealed class DepositGull : MonoBehaviour
                 try { CreateBird(); }
                 catch(Exception error)
                 {
-                    rig?.Destroy();rig=null;
+                    rig?.Dispose();rig=null;
                     if(bird)Destroy(bird);bird=null;
-                    foreach(var material in birdMaterials)if(material)Destroy(material);
-                    birdMaterials.Clear();
-                    if(!creationWarning){creationWarning=true;Plugin.Log.LogWarning("Deposit gull creation will retry: "+error.Message);}
+                    if(!creationWarning){creationWarning=true;Plugin.Log.LogWarning("Deposit owl creation will retry: "+error.Message);}
                 }
             }
         }
         if(!visible) { Hide(); return; }
         if(!bird) return;
+        // Sample the current lid perch without moving an owl already away.
+        var awayPosition=bird.transform.position;var awayRotation=bird.transform.rotation;
+        FollowChest();var homePosition=bird.transform.position;var homeRotation=bird.transform.rotation;
+        if(courier!=null&&courier.Away){bird.transform.position=awayPosition;bird.transform.rotation=awayRotation;}
+        bird.SetActive(true);
+        if(!(courier?.Away??false))
+        {
+            sorting.Resume(Time.time);
+            if(!visit.Busy&&sorting.BeginNext(Time.time+(chestModel?ChestSortVisit.ArrivalDelay:0)))
+            {if(chestModel)visit.Begin(Time.time);started=Time.time;}
+        }
+        bool traveling=false;
+        try { traveling=courier!=null&&courier.Tick(homePosition,homeRotation,sorting.Pending||visit.Busy); }
+        catch(Exception error)
+        {
+            courier?.Reset();GullToss.ClearFor(bird.transform);FollowChest();
+            if(Time.time>=nextCourierWarning)
+            {nextCourierWarning=Time.time+30;Plugin.Log.LogWarning("Owl returned to its perch after a travel error: "+error.GetBaseException().Message);}
+        }
+        if(traveling)
+        {
+            visit.Reset();if(chestModel)chestModel.SortingOpen=false;
+            sorting.Pause();return;
+        }
+        // Tick may have arrived home this frame. Restart timing without consuming
+        // a backlog instantly or depending on the chest still containing items.
+        sorting.Resume(Time.time);
+        if(!visit.Busy&&sorting.BeginNext(Time.time+(chestModel?ChestSortVisit.ArrivalDelay:0)))
+        {if(chestModel)visit.Begin(Time.time);started=Time.time;}
+        if(chestModel&&!visit.Busy&&sorting.Remaining>0)visit.Begin(Time.time);
+        visit.Tick(Time.time,sorting.Remaining);
+        if(chestModel)chestModel.SortingOpen=visit.Busy;
         FollowChest();
         bird.SetActive(true);
         var next=state.Get(Time.time,hasItems,canWork);
-        if(canWork && throws.Remaining>0) next=DepositGullMood.Sorting;
+        if(sorting.Remaining>0) next=DepositGullMood.Sorting;
         if(next!=mood) { mood=next; started=Time.time; }
         if(mood==DepositGullMood.NeedsAttention && Time.time>=nextAnnouncement &&
             Player.m_localPlayer && (Player.m_localPlayer.transform.position-bird.transform.position).sqrMagnitude<144 &&
@@ -158,7 +170,7 @@ public sealed class DepositGull : MonoBehaviour
             pose.HeadPitch=60*scoop-22*Mathf.Sin(Mathf.Clamp01((cycle-.34f)/.31f)*Mathf.PI);
             pose.BodyPitch=25*scoop; pose.Crouch=.07*scoop;
             pose.HeadYaw=22*Mathf.Sin(t*5); pose.TailYaw=15*Mathf.Sin(t*12);
-            throwNow=throws.Take(Time.time);
+            throwNow=(!chestModel || visit.CanThrow) && sorting.Take(Time.time);
         }
         else if(mood==DepositGullMood.NeedsAttention)
         {
@@ -167,10 +179,15 @@ public sealed class DepositGull : MonoBehaviour
             float peck=Pulse(p,.25f,.45f)+Pulse(p,.85f,.4f);
             pose.HeadPitch=80*peck; pose.BodyPitch=32*peck; pose.Crouch=.065*peck;
             pose.HeadYaw=p>1.6f ? 35*Mathf.Sin((p-1.6f)*2) : 0;
-            pose.HeadRoll=p>1.6f ? -14 : 0; pose.TailYaw=12*Mathf.Sin(t*20)*peck;
+            pose.HeadRoll=p>1.6f ? -42 : 0; pose.TailYaw=12*Mathf.Sin(t*20)*peck;
         }
         else
         {
+            // Burrowing owls punctuate still stares with exaggerated bobs and tilts.
+            float idle=t%6;
+            pose.HeadRoll=idle>4.8f ? 46*Mathf.Sin((idle-4.8f)/1.2f*Mathf.PI) : 0;
+            pose.HeadPitch+=22*Pulse(idle,.3f,.3f)+18*Pulse(idle,.9f,.3f);
+            pose.Crouch=.04*(Pulse(idle,.3f,.3f)+Pulse(idle,.9f,.3f));
             if(Time.time>=nextLook)
             { lookUntil=Time.time+UnityEngine.Random.Range(1.2f,2.2f); nextLook=lookUntil+UnityEngine.Random.Range(5f,10f); }
             var player=Player.m_localPlayer;
@@ -185,15 +202,45 @@ public sealed class DepositGull : MonoBehaviour
                 }
             }
         }
-        blended=GullPerformance.Blend(blended,pose,1-Mathf.Exp(-Time.deltaTime*16));
-        rig?.Apply(blended);
-        if(throwNow) GullToss.Spawn(bird.transform,sample,rig!=null ? rig.BeakWorld : bird.transform.TransformPoint(new Vector3(0,.72f,.32f)));
+        if(mood==DepositGullMood.Idle)
+        {
+            var idle=OwlMotion.Sample(OwlAction.Idle,Time.time+GetInstanceID()%23);
+            if(Time.time<lookUntil){idle.HeadYaw=(float)pose.HeadYaw;idle.HeadPitch=(float)pose.HeadPitch;}
+            rig?.Perform(idle,Time.deltaTime);
+            if(Time.time>=nextVoice)
+            {nextVoice=Time.time+UnityEngine.Random.Range(150f,240f);OwlVoice.Call(bird.transform,false);}
+        }
+        else
+        {
+            blended=GullPerformance.Blend(blended,pose,1-Mathf.Exp(-Time.deltaTime*16));
+            bool hopping=chestModel && (visit.Phase==ChestVisitPhase.Entering || visit.Phase==ChestVisitPhase.Returning);
+            rig?.Pose((float)blended.HeadPitch,(float)blended.HeadYaw,(float)blended.HeadRoll,
+                (float)blended.BodyPitch,(float)blended.Crouch,hopping ? 45*Mathf.Sin(visit.Progress(Time.time)*Mathf.PI) : mood==DepositGullMood.Sorting ? 18*Mathf.Sin(t*9) : 0);
+        }
+        bool nearby=Player.m_localPlayer&&(Player.m_localPlayer.transform.position-bird.transform.position).sqrMagnitude<9;
+        rig?.Rest(!hasItems&&mood!=DepositGullMood.Sorting&&EnvMan.instance&&!EnvMan.IsDaylight()&&!nearby,Time.time,Time.deltaTime);
+        if(throwNow) GullToss.Spawn(bird.transform,sorting.Sample,rig!=null ? rig.BeakWorld : bird.transform.TransformPoint(new Vector3(0,.72f,.32f)));
         if(rig==null) bird.transform.rotation=transform.rotation*Quaternion.Euler((float)blended.BodyPitch,0,(float)blended.BodyRoll);
     }
     private static float Pulse(float t,float start,float length)
     { if(t<start || t>start+length) return 0; float s=Mathf.Sin((t-start)/length*Mathf.PI); return s*s; }
     private void FollowChest()
     {
+        if(chestModel)
+        {
+            Vector3 local=chestModel.Perch;
+            if(visit.Phase==ChestVisitPhase.Throwing)local=chestModel.Inside;
+            else if(visit.Phase==ChestVisitPhase.Entering || visit.Phase==ChestVisitPhase.Returning)
+            {
+                float p=visit.Progress(Time.time);bool inward=visit.Phase==ChestVisitPhase.Entering;
+                local=Vector3.Lerp(inward?chestModel.Perch:chestModel.Inside,inward?chestModel.Inside:chestModel.Perch,p)
+                    +Vector3.up*(Mathf.Sin(p*Mathf.PI)*.85f);
+            }
+            bird.transform.position=transform.TransformPoint(local);
+            bird.transform.rotation=transform.rotation*Quaternion.Euler(0,180,0);
+            bird.transform.localScale=Vector3.Scale(transform.lossyScale,Vector3.one*.65f);
+            return;
+        }
         bool open=chest.m_open && chest.m_open.activeInHierarchy;
         if(open!=perchedOnOpenLid)
         { perchLocal=ChestPerch.OnVisibleLid(chest,bounds); perchedOnOpenLid=open; }
@@ -205,13 +252,14 @@ public sealed class DepositGull : MonoBehaviour
     private void Hide()
     {
         if(bird) bird.SetActive(false);
-        throws.Clear(); state.Reset();
+        courier?.Reset();
+        sorting.Clear(); state.Reset(); visit.Reset();
+        if(chestModel)chestModel.SortingOpen=false;
         GullToss.ClearFor(bird ? bird.transform : null);
     }
     private void OnDestroy()
     {
         GullToss.ClearFor(bird ? bird.transform : null);
-        rig?.Destroy(); if(bird) Destroy(bird);
-        foreach(var material in birdMaterials) if(material) Destroy(material);
+        rig?.Dispose(); if(bird) Destroy(bird);
     }
 }

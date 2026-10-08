@@ -5,79 +5,89 @@ namespace Quartermaster;
 
 internal static class ExternalSlotCompatibility
 {
-	private const string EaqsApiTypeName = "EquipmentAndQuickSlots.API, EquipmentAndQuickSlots";
+    private delegate bool CellQuery(int column, int row, out string slotName);
+    private sealed class SlotApi
+    {
+        internal CellQuery Contains;
+        internal Func<int, int, bool> Protected;
+        internal Func<int> VisibleRows;
+        internal bool Failed;
+    }
+    private static readonly Lazy<SlotApi> Api = new Lazy<SlotApi>(Connect);
+    private static readonly Lazy<Type> InventorySlotsType = new Lazy<Type>(() =>
+        Type.GetType("InventorySlots.InventorySlotsPlugin, InventorySlots", throwOnError: false));
 
-	private static bool _lookupAttempted;
+    internal static bool HasInventorySlots => InventorySlotsType.Value != null;
 
-	private static bool _availabilityLogged;
+    internal static bool IsProtectedPlayerSlot(ItemDrop.ItemData item) =>
+        item != null && IsProtectedPlayerSlot(item.m_gridPos.x, item.m_gridPos.y);
 
-	private static MethodInfo _eaqsIsSlotCell;
+    internal static bool IsProtectedPlayerSlot(int x, int y)
+    {
+        var api = Api.Value;
+        if (api == null) return false;
+        // A detected but broken equipment API must never expose its slots to Deposit All.
+        if (api.Failed) return true;
+        try
+        {
+            if (api.Protected != null) return api.Protected(x, y);
+            if (api.VisibleRows != null && y >= api.VisibleRows()) return true;
+            return api.Contains(x, y, out _);
+        }
+        catch (Exception error)
+        {
+            api.Failed = true;
+            Plugin.Log?.LogWarning("Equipment slot protection paused inventory actions: " + error.GetBaseException().Message);
+            return true;
+        }
+    }
 
-	private static MethodInfo _eaqsGetVisibleRows;
-
-	internal static bool IsProtectedPlayerSlot(ItemDrop.ItemData item)
-	{
-		if (item != null)
-		{
-			return IsProtectedPlayerSlot(item.m_gridPos.x, item.m_gridPos.y);
-		}
-		return false;
-	}
-
-	internal static bool IsProtectedPlayerSlot(int x, int y)
-	{
-		EnsureEaqsApi();
-		if (_eaqsIsSlotCell == null)
-		{
-			return false;
-		}
-		try
-		{
-			if (_eaqsGetVisibleRows != null && _eaqsGetVisibleRows.Invoke(null, null) is int num && y >= num)
-			{
-				return true;
-			}
-			object[] parameters = new object[3] { x, y, null };
-			object obj = _eaqsIsSlotCell.Invoke(null, parameters);
-			bool flag = default(bool);
-			int num2;
-			if (obj is bool)
-			{
-				flag = (bool)obj;
-				num2 = 1;
-			}
-			else
-			{
-				num2 = 0;
-			}
-			return (byte)((uint)num2 & (flag ? 1u : 0u)) != 0;
-		}
-		catch (Exception ex)
-		{
-			Plugin.Log?.LogWarning("Equipment and Quick Slots compatibility check failed: " + ex.GetBaseException().Message);
-			_eaqsIsSlotCell = null;
-			return false;
-		}
-	}
-
-	private static void EnsureEaqsApi()
-	{
-		if (!_lookupAttempted)
-		{
-			_lookupAttempted = true;
-			Type type = Type.GetType("EquipmentAndQuickSlots.API, EquipmentAndQuickSlots", throwOnError: false);
-			_eaqsIsSlotCell = type?.GetMethod("IsSlotCell", BindingFlags.Static | BindingFlags.Public, null, new Type[3]
-			{
-				typeof(int),
-				typeof(int),
-				typeof(string).MakeByRefType()
-			}, null);
-			_eaqsGetVisibleRows = type?.GetMethod("GetVisibleRows", BindingFlags.Static | BindingFlags.Public, null, Type.EmptyTypes, null);
-			if (_eaqsIsSlotCell != null && !_availabilityLogged)
-			{
-				_availabilityLogged = true;
-				Plugin.Log?.LogInfo("Equipment and Quick Slots compatibility enabled; equipment, quick, and custom slots are protected.");
-			}
-		}
-	}
+    private static SlotApi Connect()
+    {
+        var api = new SlotApi();
+        try
+        {
+            if (HasInventorySlots)
+            {
+                // InventorySlots 1.5.11 has no public slot API. Bind its own cell
+                // policy, including locked rows and favorites, rather than guess
+                // which tail rows hold equipment. A changed contract fails closed.
+                const BindingFlags policyFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static;
+                var slotsType = InventorySlotsType.Value;
+                var regular = slotsType.GetMethod("IsUsableRegularCell", policyFlags, null,
+                    new[] { typeof(Inventory), typeof(Player), typeof(Vector2i) }, null);
+                var favorite = slotsType.GetMethod("IsFavoriteSlot", policyFlags, null,
+                    new[] { typeof(Player), typeof(Vector2i) }, null);
+                if (regular == null || favorite == null) throw new MissingMethodException(slotsType.FullName, "Inventory slot policy");
+                var isRegular = (Func<Inventory, Player, Vector2i, bool>)Delegate.CreateDelegate(typeof(Func<Inventory, Player, Vector2i, bool>), regular);
+                var isFavorite = (Func<Player, Vector2i, bool>)Delegate.CreateDelegate(typeof(Func<Player, Vector2i, bool>), favorite);
+                api.Protected = (x, y) =>
+                {
+                    var player = Player.m_localPlayer;
+                    var pos = new Vector2i(x, y);
+                    return !player || !isRegular(player.GetInventory(), player, pos) || isFavorite(player, pos);
+                };
+                Plugin.Log?.LogInfo("Inventory actions respect InventorySlots equipment, quick slots, locked rows and favorites.");
+                return api;
+            }
+            // Plus retains the API namespace but changes the assembly name.
+            var type = Type.GetType("EquipmentAndQuickSlots.API, EquipmentAndQuickSlotsPlus", throwOnError: false)
+                ?? Type.GetType("EquipmentAndQuickSlots.API, EquipmentAndQuickSlots", throwOnError: false);
+            if (type == null) return null;
+            const BindingFlags flags = BindingFlags.Public | BindingFlags.Static;
+            var cell = type.GetMethod("IsSlotCell", flags, null,
+                new[] { typeof(int), typeof(int), typeof(string).MakeByRefType() }, null);
+            if (cell == null) throw new MissingMethodException(type.FullName, "IsSlotCell");
+            api.Contains = (CellQuery)Delegate.CreateDelegate(typeof(CellQuery), cell);
+            var rows = type.GetMethod("GetVisibleRows", flags, null, Type.EmptyTypes, null);
+            if (rows != null) api.VisibleRows = (Func<int>)Delegate.CreateDelegate(typeof(Func<int>), rows);
+            Plugin.Log?.LogInfo("Inventory actions respect equipment and quick-slot reservations.");
+        }
+        catch (Exception error)
+        {
+            api.Failed = true;
+            Plugin.Log?.LogWarning("Equipment slot API could not be connected; inventory actions are protected: " + error.GetBaseException().Message);
+        }
+        return api;
+    }
 }

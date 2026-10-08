@@ -1,52 +1,50 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Quartermaster;
 
 internal static class InventoryTransfers
 {
-	internal static int CountType(Inventory inventory, string sharedName, int quality = -1, bool matchWorldLevel = false)
-	{
-		if (inventory == null || string.IsNullOrEmpty(sharedName))
-		{
-			return 0;
-		}
-		int num = 0;
-		List<ItemDrop.ItemData> allItems = inventory.GetAllItems();
-		for (int i = 0; i < allItems.Count; i++)
-		{
-			ItemDrop.ItemData itemData = allItems[i];
-			if (itemData != null && itemData.m_shared != null && !(itemData.m_shared.m_name != sharedName) && (quality < 0 || itemData.m_quality == quality) && (!matchWorldLevel || itemData.m_worldLevel >= Game.m_worldLevel))
-			{
-				num += itemData.m_stack;
-			}
-		}
-		return num;
-	}
+    // Optional hard furniture admission rule, shared by all Quartermaster transfer paths.
+    internal static Func<Inventory,ItemDrop.ItemData,bool> Admission;
+    private static bool Matches(ItemDrop.ItemData item, string name, int quality, bool worldLevel)
+    {
+        if (item?.m_shared == null || string.IsNullOrEmpty(name) || item.m_stack <= 0) return false;
+        return string.Equals(name, item.m_shared.m_name, StringComparison.Ordinal)
+            && (quality < 0 || quality == item.m_quality)
+            && (!worldLevel || Game.m_worldLevel <= item.m_worldLevel);
+    }
 
-	internal static int AvailableInContainer(Container container, string sharedName, int quality = -1, bool matchWorldLevel = false)
-	{
-		Inventory inventory = ContainerRegistry.SafeInventory(container);
-		int num = CountType(inventory, sharedName, quality, matchWorldLevel);
-		if (num <= 0)
-		{
-			return 0;
-		}
-		int num2 = CountType(inventory, sharedName);
-		int num3 = ContainerRegistry.ReserveFor(container, sharedName);
-		return Math.Max(0, Math.Min(num, num2 - num3));
-	}
+    internal static int CountType(Inventory inventory, string sharedName, int quality = -1, bool matchWorldLevel = false)
+    {
+        long quantity = 0;
+        if (inventory != null)
+            foreach (var item in inventory.GetAllItems())
+                if (Matches(item, sharedName, quality, matchWorldLevel)) quantity += item.m_stack;
+        return (int)Math.Min(quantity, int.MaxValue);
+    }
+
+    internal static int AvailableInContainer(Container container, string sharedName, int quality = -1, bool matchWorldLevel = false)
+    {
+        // Callers refresh and validate their source before counting.
+        // No separate per-item reservation or physical sample reserve.
+        return CountType(ContainerRegistry.SafeInventory(container), sharedName, quality, matchWorldLevel);
+    }
 
     internal static string ItemId(ItemDrop.ItemData item) => item?.m_dropPrefab ? item.m_dropPrefab.name : item?.m_shared?.m_name ?? "";
     // Recipe/fuel references are prefab components: their ItemData.m_dropPrefab is
     // nonserialized and is initialized only when an ItemDrop instance runs Awake.
     internal static string PrefabId(ItemDrop prefab) => prefab ? prefab.gameObject.name : "";
+    // Food/materials can carry different unused durability values after creation
+    // or loading. Compare wear only for items whose definition actually uses it.
     internal static bool Stackable(ItemDrop.ItemData a, ItemDrop.ItemData b)
     {
-        if (a == null || b == null || ItemId(a) != ItemId(b) || !a.IsSameType(b)
+        if (a?.m_shared == null || b?.m_shared == null || ItemId(a) != ItemId(b) || !a.IsSameType(b)
             || a.m_quality != b.m_quality || a.m_variant != b.m_variant || a.m_worldLevel != b.m_worldLevel
-            || a.m_crafterID != b.m_crafterID || a.m_crafterName != b.m_crafterName
-            || a.m_durability != b.m_durability || a.m_cheated != b.m_cheated) return false;
+            || a.m_crafterID != b.m_crafterID || (a.m_crafterName ?? "") != (b.m_crafterName ?? "")
+            || ((a.m_shared.m_useDurability || b.m_shared.m_useDurability) && a.m_durability != b.m_durability)
+            || a.m_cheated != b.m_cheated) return false;
         var x = a.m_customData; var y = b.m_customData;
         if ((x?.Count ?? 0) != (y?.Count ?? 0)) return false;
         if (x != null) foreach (var pair in x) if (y == null || !y.TryGetValue(pair.Key, out var v) || v != pair.Value) return false;
@@ -54,7 +52,7 @@ internal static class InventoryTransfers
     }
     internal static int CapacityFor(Inventory destination, ItemDrop.ItemData source, bool matchingOnly)
     {
-        if (destination == null || source?.m_shared == null) return 0;
+        if (destination == null || source?.m_shared == null || (Admission!=null&&!Admission(destination,source))) return 0;
         bool match = false; long capacity = 0;
         foreach (var item in destination.GetAllItems())
         {
@@ -84,6 +82,67 @@ internal static class InventoryTransfers
         int count = Math.Min(Math.Max(0, requested), CapacityFor(destination, item, matchingOnly));
         if (count <= 0) return 0;
         int moved = AddRaw(destination, item, count); Notify(destination); return moved;
+    }
+    // Reserve a concrete slot/stack before consuming a world item. The native
+    // RemoveOne handler persists the source without clamping oversized old piles.
+    // Notify chest listeners only after both sides have their final quantities.
+    internal static bool ReceiveOne(Inventory destination,ItemDrop.ItemData source,Func<bool> take)
+    {
+        if(destination==null||source?.m_shared==null||CapacityFor(destination,source,false)<1)return false;
+        var items=destination.GetAllItems();
+        foreach(var stack in items)
+        {
+            if(!Stackable(stack,source)||stack.m_stack>=stack.m_shared.m_maxStackSize)continue;
+            if(!take())return false;stack.m_stack++;Notify(destination);return true;
+        }
+        int width=destination.GetWidth();var occupied=new HashSet<int>();
+        foreach(var stack in items)occupied.Add(stack.m_gridPos.y*width+stack.m_gridPos.x);
+        for(int slot=0;slot<width*destination.GetHeight();slot++)
+        {
+            if(occupied.Contains(slot))continue;
+            var copy=source.Clone();copy.m_stack=1;copy.m_equipped=false;copy.m_gridPos=new Vector2i(slot%width,slot/width);
+            if(!take())return false;items.Add(copy);Notify(destination);return true;
+        }
+        return false;
+    }
+    // Emit one legal stack at a time. A failed spawn leaves the source untouched.
+    // This also handles limits lowered while an old inventory is unloaded.
+    internal static int SplitExcess(Inventory inventory)
+    {
+        if (inventory == null) return 0;
+        int moved = 0;
+        foreach (var item in inventory.GetAllItems().ToArray())
+        {
+            if (item?.m_shared == null) continue;
+            int excess = item.m_stack - Math.Max(1, item.m_shared.m_maxStackSize);
+            if (excess <= 0) continue;
+            // AddRaw skips this oversized source and fills compatible stacks/free
+            // cells. Keep metadata, then notify only once both sides are balanced.
+            int stored = AddRaw(inventory, item, excess);
+            item.m_stack -= stored;
+            moved += stored;
+        }
+        if (moved > 0) Notify(inventory);
+        return moved;
+    }
+    internal static int EjectExcess(Inventory inventory,int budget,Func<ItemDrop.ItemData,bool> spawn)
+    {
+        if(inventory==null||budget<=0)return 0;
+        int drops=0;
+        foreach(var item in inventory.GetAllItems().ToArray())
+        {
+            if(item?.m_shared==null)continue;
+            int limit=Math.Max(1,item.m_shared.m_maxStackSize);
+            while(item.m_stack>limit&&drops<budget)
+            {
+                int amount=Math.Min(limit,item.m_stack-limit);
+                var copy=item.Clone();copy.m_stack=amount;copy.m_equipped=false;
+                if(!spawn(copy))return drops;
+                item.m_stack-=amount;drops++;Notify(inventory);
+            }
+            if(drops>=budget)break;
+        }
+        return drops;
     }
     private static int AddRaw(Inventory inventory, ItemDrop.ItemData item, int count)
     {
@@ -128,48 +187,25 @@ internal static class InventoryTransfers
         if (changed) Notify(inventory);
     }
 
-	internal static int Remove(Inventory inventory, string sharedName, int amount, int quality, bool matchWorldLevel)
-	{
-		if (inventory == null || amount <= 0)
-		{
-			return 0;
-		}
-		int num = amount;
-		List<ItemDrop.ItemData> list = new List<ItemDrop.ItemData>(inventory.GetAllItems());
-		list.Sort((ItemDrop.ItemData a, ItemDrop.ItemData b) => a.m_stack.CompareTo(b.m_stack));
-		for (int num2 = 0; num2 < list.Count; num2++)
-		{
-			if (num <= 0)
-			{
-				break;
-			}
-			ItemDrop.ItemData itemData = list[num2];
-			if (!(itemData.m_shared.m_name != sharedName) && (quality < 0 || itemData.m_quality == quality) && (!matchWorldLevel || itemData.m_worldLevel >= Game.m_worldLevel))
-			{
-				int num3 = Math.Min(num, itemData.m_stack);
-				if (inventory.RemoveItem(itemData, num3))
-				{
-					num -= num3;
-				}
-			}
-		}
-		return amount - num;
-	}
+    internal static int Remove(Inventory inventory, string sharedName, int amount, int quality, bool matchWorldLevel)
+    {
+        if (amount <= 0 || inventory == null) return 0;
+        var candidates = inventory.GetAllItems()
+            .Where(item => Matches(item, sharedName, quality, matchWorldLevel))
+            .OrderBy(item => item.m_stack).ToArray();
+        int removed = 0;
+        foreach (var stack in candidates)
+        {
+            if (removed == amount) break;
+            // Native removal persists each change; callbacks may alter later candidates.
+            if (!inventory.ContainsItem(stack) || !Matches(stack, sharedName, quality, matchWorldLevel)) continue;
+            int portion = Math.Min(amount - removed, stack.m_stack);
+            if (inventory.RemoveItem(stack, portion)) removed += portion;
+        }
+        return removed;
+    }
 
-	internal static bool HasType(Inventory inventory, ItemDrop.ItemData item)
-	{
-		if (inventory == null || item == null)
-		{
-			return false;
-		}
-		List<ItemDrop.ItemData> allItems = inventory.GetAllItems();
-		for (int i = 0; i < allItems.Count; i++)
-		{
-			if (allItems[i] != null && allItems[i].IsSameType(item))
-			{
-				return true;
-			}
-		}
-		return false;
-	}
+    internal static bool HasType(Inventory inventory, ItemDrop.ItemData item) =>
+        item?.m_shared != null && inventory != null
+        && inventory.GetAllItems().Any(stored => stored?.m_shared != null && stored.IsSameType(item));
 }

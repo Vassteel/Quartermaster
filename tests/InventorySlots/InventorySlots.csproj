@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>InventorySlots</AssemblyName>
+    <DefineConstants Condition="'$(BrokenSlotApi)' == 'true'">$(DefineConstants);BROKEN_SLOT_API</DefineConstants>
+    <OutputPath Condition="'$(BrokenSlotApi)' == 'true'">bin/broken/</OutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../StorageCore/Stubs.cs" Link="Stubs.cs" />
+    <Compile Include="../StorageCore/HarmonyStubs.cs" Link="HarmonyStubs.cs" />
+    <Compile Include="../../src/WarehouseService.cs" Link="WarehouseService.cs" />
+    <Compile Include="../../src/InventoryTransfers.cs" Link="InventoryTransfers.cs" />
+    <Compile Include="../../src/ExternalSlotCompatibility.cs" Link="ExternalSlotCompatibility.cs" />
+  </ItemGroup>
+</Project>

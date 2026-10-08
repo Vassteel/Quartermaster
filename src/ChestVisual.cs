@@ -17,7 +17,9 @@ public sealed class ChestVisual : MonoBehaviour
     private Mesh runeHaloMesh;
     private Light[] ornamentLights;
     private GameObject receiptEffect;
-    private LineRenderer receiptOutline;
+    private LineRenderer receiptOutline, receiptHalo;
+    private Material receiptGlowMaterial;
+    private Texture2D receiptGlowTexture;
     private Bounds chestBounds;
     private bool measured;
     private const float ReceiptDuration = 3f;
@@ -62,7 +64,7 @@ public sealed class ChestVisual : MonoBehaviour
         for (int i = 0; i < gears.Length; i++)
         {
             gears[i].startColor = gears[i].endColor = color;
-            gears[i].transform.localRotation = Quaternion.Euler(0, 0, Time.time * (i == 0 ? 12 : -18));
+            gears[i].transform.localRotation = Quaternion.Euler(0, 0, Time.time * (i % 2 == 0 ? 12 : -18));
         }
     }
     private Bounds MeasureChest()
@@ -73,6 +75,7 @@ public sealed class ChestVisual : MonoBehaviour
         {
             if (chest.m_open && r.transform.IsChildOf(chest.m_open.transform)) continue;
             if (!r.GetComponent<MeshFilter>() || !r.GetComponent<MeshFilter>().sharedMesh) continue;
+            if (!r.enabled || r.forceRenderingOff || r.transform == chest.GetComponent<QuartermasterChestModel>()?.Lid) continue;
             var local = r.GetComponent<MeshFilter>().sharedMesh.bounds;
             for (int i = 0; i < 8; i++)
             {
@@ -91,7 +94,8 @@ public sealed class ChestVisual : MonoBehaviour
     }
     private void UpdateReceipt()
     {
-        bool active = Time.time < pulseUntil;
+        bool searching = ChestSearch.Highlighted(chest);
+        bool active = searching || Time.time < pulseUntil;
         if (!active) { if (receiptEffect) receiptEffect.SetActive(false); return; }
         if (!receiptEffect)
         {
@@ -113,16 +117,37 @@ public sealed class ChestVisual : MonoBehaviour
             for (int i = 0; i < route.Length; i++) receiptOutline.SetPosition(i, corners[route[i]]);
             receiptOutline.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             receiptOutline.receiveShadows = false;
+            receiptGlowTexture=new Texture2D(1,32,TextureFormat.RGBA32,false){wrapMode=TextureWrapMode.Clamp,filterMode=FilterMode.Bilinear};
+            var glowPixels=new Color[32];
+            for(int i=0;i<32;i++){float edge=Mathf.Abs(i/31f*2-1);glowPixels[i]=new Color(1,1,1,Mathf.Pow(1-edge,2));}
+            receiptGlowTexture.SetPixels(glowPixels);receiptGlowTexture.Apply(false,true);
+            receiptGlowMaterial=new Material(material){mainTexture=receiptGlowTexture};
+            var glow=new GameObject("ChestSearchSoftGlow");glow.transform.SetParent(receiptEffect.transform,false);
+            receiptHalo=glow.AddComponent<LineRenderer>();receiptHalo.sharedMaterial=receiptGlowMaterial;
+            receiptHalo.useWorldSpace=false;receiptHalo.widthMultiplier=.14f;receiptHalo.numCornerVertices=3;
+            receiptHalo.positionCount=route.Length;
+            for(int i=0;i<route.Length;i++)receiptHalo.SetPosition(i,corners[route[i]]);
+            receiptHalo.shadowCastingMode=UnityEngine.Rendering.ShadowCastingMode.Off;receiptHalo.receiveShadows=false;
         }
         receiptEffect.SetActive(true);
         float remaining = Mathf.Clamp01((pulseUntil - Time.time) / ReceiptDuration);
-        var color = new Color(.22f, .85f, 1f, .9f * remaining);
+        receiptOutline.widthMultiplier = searching ? .035f : .014f;
+        var color = searching ? new Color(1f,.76f,.18f,.85f+.12f*Mathf.Sin(Time.time*2f)) : new Color(.22f, .85f, 1f, .9f * remaining);
         receiptOutline.startColor = receiptOutline.endColor = color;
+        receiptHalo.enabled=searching;
+        receiptHalo.startColor=receiptHalo.endColor=new Color(color.r,color.g,color.b,.36f);
     }
     private void Create()
     {
         var bounds = MeasureChest();
         DepositGull.Attach(chest, bounds);
+        if (chest.GetComponent<QuartermasterChestModel>())
+        {
+            // The dedicated coffer has its own trim and owl plate.
+            ornament = new GameObject("Quartermaster dedicated chest"); ornament.transform.SetParent(transform, false);
+            gears = new LineRenderer[0]; ornamentLights = new Light[0];
+            return;
+        }
         ornament = new GameObject("Quartermaster_DepositGears"); ornament.transform.SetParent(transform, false);
         // Decorate both long faces so orientation and chest variants remain readable.
         gears = new LineRenderer[4];
@@ -151,8 +176,9 @@ public sealed class ChestVisual : MonoBehaviour
             float scale = i % 2 == 0 ? 1f : .72f;
             for (int j = 0; j < 64; j++)
             {
-                float a = j * Mathf.PI * 2 / 64; float r = radius * scale * (j % 4 == 1 || j % 4 == 2 ? 1 : .78f);
-                line.SetPosition(j, new Vector3(Mathf.Cos(a) * r, Mathf.Sin(a) * r, 0));
+                float angle = j * Mathf.PI * 2 / 64;
+                float r = radius * scale * (j % 4 == 1 || j % 4 == 2 ? 1 : .78f);
+                line.SetPosition(j,new Vector3(Mathf.Cos(angle)*r,Mathf.Sin(angle)*r,0));
             }
             gears[i] = line;
             line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
@@ -201,6 +227,8 @@ public sealed class ChestVisual : MonoBehaviour
     }
     private void OnDestroy()
     {
+        if(receiptGlowMaterial)Destroy(receiptGlowMaterial);
+        if(receiptGlowTexture)Destroy(receiptGlowTexture);
         if (material) Destroy(material);
         if (runeMaterial) Destroy(runeMaterial);
         if (runeMesh) Destroy(runeMesh);

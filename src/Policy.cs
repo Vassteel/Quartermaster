@@ -15,10 +15,16 @@ public sealed class ChestSettings
     public bool ProcessingSupply = true;
     public bool LivestockFeed;
     public bool FeedUntamed;
+    public float FeedingRange = 10f;
+    public float PickupRange = 25f;
+    public long PickupRequestedUntil;
     public bool Preferred;
     public bool Overflow;
     public bool AutoSort;
     public bool Learn = true;
+    public bool AutoAssign = true;
+    public string AutoCategories = "";
+    public string BaseName = "";
     public string Group = "Home";
     public List<string> Remembered = new List<string>();
     public List<string> Forgotten = new List<string>();
@@ -42,8 +48,9 @@ public sealed class ChestSettings
         Forgotten.Remove(type);
         if (!Remembered.Contains(type)) Remembered.Add(type);
     }
-    public bool Accepts(string type) => AcceptStorage && !Deposit &&
-        (Overflow || (Remembered.Contains(type) && !Forgotten.Contains(type)));
+    public bool Accepts(string type) => Accepts(type, false);
+    public bool Accepts(string type, bool categoryMatch) => AcceptStorage && !Deposit &&
+        (Overflow || ((Remembered.Contains(type) || (AutoAssign && categoryMatch)) && !Forgotten.Contains(type)));
 }
 
 [Serializable]
@@ -60,7 +67,7 @@ public sealed class MachineSettings
     public bool AllowValuableWood;
     public string Group = "Home";
     public List<ProductCap> Caps = new List<ProductCap>();
-    public int Cap(string item) => Caps.FirstOrDefault(c => c.Item == item)?.Amount ?? 200;
+    public int Cap(string item) => Caps.FirstOrDefault(c => c.Item == item)?.Amount ?? 0;
     public void SetCap(string item, int amount)
     {
         if (string.IsNullOrEmpty(item)) throw new ArgumentException("A production cap requires an output item", nameof(item));
@@ -82,6 +89,8 @@ public sealed class MachineSettings
 
 public static class Policy
 {
+    public static float FeedingRadius(float value) => float.IsNaN(value) || float.IsInfinity(value) || value <= 0 ? 10f : Math.Min(100f, Math.Max(1f, value));
+    public static bool WithinFeedingRange(float squaredDistance, float range) => squaredDistance >= 0 && squaredDistance <= FeedingRadius(range) * FeedingRadius(range);
     public const long OutputDelayTicks = TimeSpan.TicksPerSecond * 60;
     public static bool OutputReady(long now, long ready) => ready > 0 && now >= ready;
     public static bool CookingSlotReady(string item, int status) => !string.IsNullOrEmpty(item) && (status == 1 || status == 2);

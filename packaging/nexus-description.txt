@@ -1,0 +1,1 @@
+Quartermaster adds owl-assisted storage and base automation: learned chest sorting, crafting supplies, machine fueling, animal feeding and production limits. Use the ledger lectern to view stock and change stack sizes in game. The owl visits working stations and collects nearby drops. Join the mod community on Discord: https://discord.gg/zxJpwr49fR
