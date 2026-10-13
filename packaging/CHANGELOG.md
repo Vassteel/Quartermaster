@@ -1,3 +1,8 @@
+## 0.1.65 — Orphaned drawer cleanup
+- Periodically verify drawer cabinet existence with the server, even when a client retains a cached cabinet record after demolition.
+- Existing orphaned drawers are removed when loaded and owned; their contents are dropped for recovery. Unloaded cabinets are preserved.
+- Shared-chest transaction limitations documented in 0.1.64 still apply.
+
 ## 0.1.64 — Shared chests (candidate)
 - Add shared access to registered chests, drawers and Apothecary storage between compatible Quartermaster clients. Viewer changes are validated by the chest owner; conflicting changes are rejected.
 - Automation and crafting supply yield while shared storage is being viewed.

@@ -25,8 +25,30 @@ var shape=ModularCabinetPlacement.DrawerScale;Check(shape.x==2&&shape.y==1.5f&&s
 for(int i=0;i<12;i++){var at=ModularCabinetPlacement.DrawerPosition(i);Check(at.y>0&&at.y<1.5&&Math.Abs(at.x)<1&&at.z>.5&&at.z<.625,"all drawer click surfaces match resized fronts");}
 var child=new GameObject();var cv=child.AddComponent<ZNetView>();cv.Data=saved;var chest=child.AddComponent<Container>();chest.Items=17;var storage=child.AddComponent<DrawerStorage>();Call(storage,"Awake");
 Call(storage,"RemoveRequested",999L);Check(chest.Drops==0,"unrelated peer cannot drop drawer contents");
-ZDOMan.instance.All.Remove(view.Data.m_uid);ZNet.instance.Server=false;Time.time=0;Call(storage,"CheckParent");Time.time=15;Call(storage,"CheckParent");Check(chest.Drops==0&&ZRoutedRpc.instance.LastMethod=="QM_CheckDrawerParent","client requests server confirmation instead of inferring destruction");
-ZNet.instance.Server=true;cv.Data.Owner=99;Call(storage,"CheckParent");Check(chest.Drops==0,"server does not steal a live owner inventory during destruction");cv.Data.Owner=cv.Peer;Call(storage,"CheckParent");Check(chest.Drops==17&&ZNetScene.instance.Destroyed.Count==1,"server recovers contents from orphan drawer");Call(storage,"CheckParent");Check(chest.Drops==17,"destruction cannot drop twice");
+// Reproduce the reported race: cabinet exists only in the client's stale cache.
+ZNet.instance.Server=false;Time.time=0;Call(storage,"CheckParent");
+int before=ZRoutedRpc.instance.Requests;Time.time=15;Call(storage,"CheckParent");
+Check(ZDOMan.instance.GetZDO(view.Data.m_uid)!=null&&ZRoutedRpc.instance.Requests==before+1&&ZRoutedRpc.instance.LastMethod=="QM_CheckDrawerParent","cached parent cannot suppress server validation");
+Call(storage,"CheckParent");Check(ZRoutedRpc.instance.Requests==before+1,"parent checks are throttled");
+// The server has the full database, including parents with no loaded scene object.
+ZNet.instance.Server=true;ZNetScene.instance.Loaded.Remove(view.Data.m_uid);
+before=ZRoutedRpc.instance.Requests;Call(network,"Check",cv.Data.Owner,cv.Data.m_uid);
+Check(ZRoutedRpc.instance.Requests==before&&chest.Drops==0,"unloaded existing cabinet does not orphan drawers");
+ZDOMan.instance.All.Remove(view.Data.m_uid);
+Call(network,"Check",999L,cv.Data.m_uid);Check(ZRoutedRpc.instance.Requests==before,"nonowner cannot request orphan deletion");
+Call(network,"Check",cv.Data.Owner,cv.Data.m_uid);Check(ZRoutedRpc.instance.Requests==before+1&&ZRoutedRpc.instance.LastMethod=="QM_DrawerParentGone","server confirms deleted parent to drawer owner");
+// A client may remove only after the real server confirms; cached parent is irrelevant.
+ZNetScene.instance.Loaded[cv.Data.m_uid]=child;ZDOMan.instance.All[view.Data.m_uid]=view.Data;
+ZNet.instance.Server=false;Call(network,"Reply",999L,cv.Data.m_uid);Check(chest.Drops==0,"untrusted deletion reply ignored");
+cv.Data.Owner=99;Call(network,"Reply",10L,cv.Data.m_uid);Check(chest.Drops==0,"stale reply after ownership handoff cannot delete");
+cv.Data.Owner=cv.Peer;Call(network,"Reply",10L,cv.Data.m_uid);
+Check(chest.Drops==17&&ZNetScene.instance.Destroyed.Count==1,"confirmed phantom drawer drops contents despite cached parent");
+Call(network,"Reply",10L,cv.Data.m_uid);Check(chest.Drops==17,"repeated reply does not duplicate recovery drops");
+// Dedicated/server-owned orphan recovery needs no client RPC or parent scene instance.
+var orphan=new GameObject();var ov=orphan.AddComponent<ZNetView>();ov.Data=ZDOMan.instance.CreateNewZDO(new(),1);ov.Data.Set(DrawerFurniture.ParentKey,view.Data.m_uid);ov.Data.Set(DrawerFurniture.IndexKey,0);ov.Data.Owner=99;
+var oc=orphan.AddComponent<Container>();oc.Items=23;var os=orphan.AddComponent<DrawerStorage>();Call(os,"Awake");
+ZDOMan.instance.All.Remove(view.Data.m_uid);ZNet.instance.Server=true;Time.time=40;Call(os,"CheckParent");Check(oc.Drops==0,"server does not steal remote-owned orphan");
+ov.Data.Owner=ov.Peer;Call(os,"CheckParent");Check(oc.Drops==23,"server-owned orphan contents recovered");Call(os,"CheckParent");Check(oc.Drops==23,"server cleanup is idempotent");
 Check(DrawerLayout.Columns*DrawerLayout.Rows==24&&DrawerLayout.Count==12,"twelve independent 24-slot inventories");
 for(int i=0;i<3;i++){using var stream=File.OpenRead($"assets/drawer-cabinets/{i}.bin");var model=OwlModelData.Read(stream,true,5);Check(model.Levels[0].Length==5,"five shared native and solid material surfaces");foreach(var part in model.Levels[0])for(int k=0;k<part.Vertices.Length;k+=8)Check(Math.Abs(part.Vertices[k])<=.505&&part.Vertices[k+1]>=-.01&&part.Vertices[k+1]<=1.01&&Math.Abs(part.Vertices[k+2])<=.26,"one metre cabinet envelope");}
 Console.WriteLine($"PASS {checks} drawer ownership, persistence links, destruction recovery and geometry checks");

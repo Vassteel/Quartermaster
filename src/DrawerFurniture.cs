@@ -107,7 +107,7 @@ internal sealed class DrawerStorage:MonoBehaviour
 {
     private ZNetView view;
     private Container chest;
-    private float missingSince=-1;
+    private float nextParentCheck;
     private bool removing;
     private static readonly MethodInfo Drop=AccessTools.Method(typeof(Container),"DropAllItems",Type.EmptyTypes);
     private void Awake()
@@ -120,6 +120,7 @@ internal sealed class DrawerStorage:MonoBehaviour
         // Reverse only the displayed number; inventory identities stay unchanged.
         chest.m_name="Apothecary Drawer "+(DrawerLayout.Count-index);
         var hit=gameObject.AddComponent<BoxCollider>();hit.center=DrawerCabinetArt.Position(index);hit.size=Vector3.Scale(new Vector3(.203f,.260f,.045f),ModularCabinetPlacement.DrawerScale);
+        nextParentCheck=Time.time+12f;
         view.Register("QM_RemoveDrawer",RemoveRequested);
         InvokeRepeating(nameof(CheckParent),2f,3f);
     }
@@ -133,15 +134,19 @@ internal sealed class DrawerStorage:MonoBehaviour
     private void CheckParent()
     {
         if(removing||!view||!view.IsValid()||!ZNet.instance)return;
+        if(!view.IsOwner())return;
         var id=view.GetZDO().GetZDOID(DrawerFurniture.ParentKey);
         if(id==ZDOID.None)return;
-        if(ZDOMan.instance.GetZDO(id)!=null){missingSince=-1;return;}
-        if(missingSince<0){missingSince=Time.time;return;}
-        if(Time.time-missingSince<12)return;
-        // Also recovers destruction while drawers were unloaded or during a
-        // disconnect. Clients ask the server before treating streamed data as deleted.
-        if(ZNet.instance.IsServer()){if(view.IsOwner())Remove();}
-        else if(view.IsOwner())DrawerNetwork.CheckOrphan(view.GetZDO().m_uid);
+        if(Time.time<nextParentCheck)return;
+        nextParentCheck=Time.time+12f;
+        // A client's cached parent ZDO can survive cabinet destruction. Always
+        // consult the server; local presence is not proof the cabinet still exists.
+        // On the server, an unloaded cabinet still has a ZDO and must be retained.
+        if(ZNet.instance.IsServer())
+        {
+            if(ZDOMan.instance.GetZDO(id)==null)Remove();
+        }
+        else DrawerNetwork.CheckOrphan(view.GetZDO().m_uid);
     }
     internal void Remove()
     {

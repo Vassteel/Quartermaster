@@ -7,7 +7,7 @@
     <!-- Resolve against the game, never DLLs produced by the .NET 8 test harnesses. -->
     <AssemblySearchPaths>{HintPathFromItem};{TargetFrameworkDirectory}</AssemblySearchPaths>
     <AssemblyName>Quartermaster</AssemblyName>
-    <Version>0.1.64</Version>
+    <Version>0.1.65</Version>
     <GamePath Condition="'$(GamePath)' == ''">/home/deck/.steam/steam/steamapps/common/Valheim</GamePath>
     <ManagedPath>$(GamePath)/valheim_Data/Managed</ManagedPath>
     <FrameworkPathOverride>$(ManagedPath)</FrameworkPathOverride>
