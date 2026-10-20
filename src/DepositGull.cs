@@ -79,7 +79,8 @@ public sealed class DepositGull : MonoBehaviour
             foreach(var material in renderer.sharedMaterials)
                 if(material && material.shader && material.shader.name=="Custom/Piece")
                 { worldMaterial=material;lightAnchor=renderer.probeAnchor ? renderer.probeAnchor : renderer.transform;break; }
-        if(!worldMaterial)throw new InvalidOperationException("Chest's world-lit material is not available yet.");
+        if(!worldMaterial)worldMaterial=StorageMaterials.WorldSurface(chest.gameObject);
+        if(!worldMaterial)throw new InvalidOperationException("Native world-lit material is not available yet (chest, wood chest and sign checked).");
         bird=new GameObject("Quartermaster deposit owl perch");
         // A separate root prevents chest glow effects from touching the owl's materials.
         perchLocal=ChestPerch.OnVisibleLid(chest,bounds);

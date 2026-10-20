@@ -12,6 +12,14 @@ class Program {
   PrefabManager.Instance.Prefabs["piece_chest_wood"]=chest;
   var flint=new GameObject{name="Flint",Renderers=new Renderer[]{new MeshRenderer{sharedMaterials=new[]{new Material(new Shader{name="Lit/Item"})}}}};
   Check(Shader.Find("Standard")==null,"Fixture reproduces stripped Standard shader");
+  Check(StorageMaterials.WorldSurface(flint)==native,"Owl can borrow native chest material when deposit surface has another shader");
+  var sign=new GameObject{Renderers=new Renderer[]{new MeshRenderer{sharedMaterials=new[]{native}}}};
+  PrefabManager.Instance.Prefabs["sign"]=sign;PrefabManager.Instance.Prefabs.Remove("piece_chest_wood");
+  Check(StorageMaterials.WorldSurface(flint)==native,"Sign supplies fallback when wood chest unavailable");
+  PrefabManager.Instance.Prefabs.Remove("sign");
+  Check(StorageMaterials.WorldSurface(flint)==null,"Missing native donors remains retryable without an unlit fallback");
+  PrefabManager.Instance.Prefabs["piece_chest_wood"]=chest;
+  Check(StorageMaterials.WorldSurface(chest)==native,"Native deposit chest retains its own material");
   var atlas=new Texture();var clay=StorageMaterials.Opaque(flint,"clay",atlas);
   Check(clay.shader==nativeShader&&clay.mainTexture==atlas,"Clay falls back from Flint to known native building shader");
   Check(native.keywords.Contains("NOISEGLOW")&&!clay.keywords.Contains("NOISEGLOW")&&native.mainTexture!=atlas,"Native material remains untouched");

@@ -32,7 +32,7 @@ public class ZNetView {
  public void Register<T>(string name,Action<long,T> f)=>Rpcs.Add(name,f);
  public void Register(string name,Action<long> f)=>Rpcs.Add(name,f);
  public void InvokeRPC(long target,string method,params object[] args){Net.Sent.Add((target,method,this,args,ZDOMan.GetSessionID()));}
- public void ClaimOwnership(){ if(!IsOwner()) Zdo.SetOwner(ZDOMan.GetSessionID()); Net.Log.Add("claim "+Zdo.m_uid); }
+ public bool RejectClaim; public void ClaimOwnership(){ if(RejectClaim){Net.Log.Add("claim-rejected");return;} if(!IsOwner()) Zdo.SetOwner(ZDOMan.GetSessionID()); Net.Log.Add("claim "+Zdo.m_uid); }
  public T GetComponent<T>() where T:class => typeof(T)==typeof(Container)?Chest as T:null;
  public static implicit operator bool(ZNetView v)=>v!=null;
 }
@@ -121,6 +121,20 @@ class Program {
   Net.Sent.Clear(); Net.Log.Clear(); var hub=View(10,B);
   Check(!ChestOwnership.Request(hub,"base executor",onlyUnserved:true)&&Net.Sent.Count==0&&!hub.IsOwner(),"another connected player's hub is never contested");
   var orphanHub=View(11,0); ChestOwnership.Request(orphanHub,"base executor",onlyUnserved:true); Check(orphanHub.IsOwner(),"an unowned hub is taken so the base keeps running");
+  // Reproduce a torch repeatedly reset to owner zero by incoming network state.
+  var unstable=View(80,0); Net.Log.Clear(); float start=UnityEngine.Time.unscaledTime;
+  ChestOwnership.Request(unstable,"station"); unstable.Zdo.SetOwner(0);
+  UnityEngine.Time.unscaledTime=start+2.1f; ChestOwnership.Request(unstable,"station"); unstable.Zdo.SetOwner(0);
+  UnityEngine.Time.unscaledTime=start+4.2f; ChestOwnership.Request(unstable,"station");
+  Check(Net.Log.Count(l=>l.StartsWith("claim "))==2,"repeated owner-zero resets back off rather than claiming every two seconds");
+  UnityEngine.Time.unscaledTime=start+6.3f;ChestOwnership.Request(unstable,"station");
+  Check(Net.Log.Count(l=>l.StartsWith("claim "))==3,"unstable claims retry after bounded delay");
+  UnityEngine.Time.unscaledTime+=ChestOwnership.ClaimSettleSeconds;
+  Check(ChestOwnership.Request(unstable,"station"),"stable ownership still becomes writable");
+  var rejected=View(81,0);rejected.RejectClaim=true;Plugin.OwnershipTrace.Value=false;Net.Log.Clear();
+  Check(!ChestOwnership.Request(rejected,"station")&&!ChestOwnership.Settled(rejected),"rejected claim cannot authorize a write");
+  Check(!Net.Log.Any(l=>l.Contains("[ownership]")),"ownership diagnostics disabled means no claim logspam");
+  Plugin.OwnershipTrace.Value=true;
   // Per-cycle request cap
   Net.Sent.Clear(); ChestOwnership.BeginCycle();
   for(int i=0;i<9;i++)ChestOwnership.Request(View(20+i,B),"t");

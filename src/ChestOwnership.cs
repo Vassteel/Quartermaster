@@ -35,7 +35,9 @@ internal static class ChestOwnership
     private static readonly Dictionary<ZDOID, string> Traced = new Dictionary<ZDOID, string>();
     private static int sentThisCycle;
 
-    internal static void Clear() { Requests.Clear(); Claimed.Clear(); Traced.Clear(); sentThisCycle = 0; }
+    private sealed class ClaimRetry { internal float NextAt; internal int Attempts; }
+    private static readonly Dictionary<ZDOID, ClaimRetry> ClaimRetries = new Dictionary<ZDOID, ClaimRetry>();
+    internal static void Clear() { Requests.Clear(); Claimed.Clear(); ClaimRetries.Clear(); Traced.Clear(); sentThisCycle = 0; }
     internal static void BeginCycle() => sentThisCycle = 0;
 
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ZNetView, object> Registered = new System.Runtime.CompilerServices.ConditionalWeakTable<ZNetView, object>();
@@ -150,9 +152,19 @@ internal static class ChestOwnership
 
     private static void Claim(ZNetView view, string reason)
     {
+        var id = view.GetZDO().m_uid;
+        float now = Time.unscaledTime;
+        if (!ClaimRetries.TryGetValue(id, out var retry)) ClaimRetries[id] = retry = new ClaimRetry();
+        if (now < retry.NextAt) return;
+        retry.Attempts = Math.Min(retry.Attempts + 1, 5);
+        retry.NextAt = now + Mathf.Min(30f, 2f * Mathf.Pow(2f, retry.Attempts - 1));
         view.ClaimOwnership();
-        Claimed[view.GetZDO().m_uid] = Time.unscaledTime + ClaimSettleSeconds;
-        Plugin.Log.LogInfo("[ownership] claimed " + view.name + " " + view.GetZDO().m_uid + " (" + reason + ")");
+        if (view.IsOwner())
+        {
+            Claimed[id] = now + ClaimSettleSeconds;
+            Trace("claim", view, reason);
+        }
+        else Trace("claim-not-acquired", view, reason);
     }
 
     // Claimed maps a ZDO to the time its ownership becomes safe to write: after a
@@ -164,7 +176,7 @@ internal static class ChestOwnership
         if (!view || !view.IsValid() || !view.IsOwner()) return false;
         if (!Claimed.TryGetValue(view.GetZDO().m_uid, out var readyAt)) return true;
         if (Time.unscaledTime < readyAt) return false;
-        Claimed.Remove(view.GetZDO().m_uid); return true;
+        Claimed.Remove(view.GetZDO().m_uid); ClaimRetries.Remove(view.GetZDO().m_uid); return true;
     }
 
     internal static string Describe(ZNetView view)

@@ -1,3 +1,9 @@
+## 0.1.66
+
+- Restore owl creation on chests without a native world-lit material by falling back to the vanilla wood chest or sign material.
+- Back off repeated ownership claims when a machine loses its owner, and keep claim diagnostics behind the ownership tracing setting.
+- Add regression coverage for material fallbacks and ownership retry timing.
+
 ## 0.1.65 — Orphaned drawer cleanup
 - Periodically verify drawer cabinet existence with the server, even when a client retains a cached cabinet record after demolition.
 - Existing orphaned drawers are removed when loaded and owned; their contents are dropped for recovery. Unloaded cabinets are preserved.

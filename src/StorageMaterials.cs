@@ -13,11 +13,18 @@ internal static class StorageMaterials
         prefab.GetComponentsInChildren<Renderer>(true).SelectMany(renderer => renderer.sharedMaterials)
             .FirstOrDefault(material => material && material.shader && material.shader.name == "Custom/Piece");
 
-    internal static Material Opaque(GameObject preferred, string name, Texture texture, float metallic = 0)
+    // Resolve a native world-lit surface without depending on the placed chest's shader.
+    internal static Material WorldSurface(GameObject preferred)
     {
         var source = PieceSurface(preferred);
         if (!source) source = PieceSurface(PrefabManager.Instance.GetPrefab("piece_chest_wood"));
         if (!source) source = PieceSurface(PrefabManager.Instance.GetPrefab("sign"));
+        return source;
+    }
+
+    internal static Material Opaque(GameObject preferred, string name, Texture texture, float metallic = 0)
+    {
+        var source = WorldSurface(preferred);
         if (!source) throw new InvalidOperationException("Native building material unavailable for " + name);
         var result = new Material(source.shader) { name = name, color = Color.white, mainTexture = texture, enableInstancing = true };
         foreach (var key in new[] { "_Glossiness", "_Metallic", "_MetalGloss", "_NoiseGlowEnabled", "_TriplanarMap", "_ValueNoise", "_ValueNoiseVertex" })

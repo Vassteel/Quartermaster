@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace Quartermaster;
 
-[BepInPlugin("local.valheim.quartermaster", "Quartermaster", "0.1.65")]
+[BepInPlugin("local.valheim.quartermaster", "Quartermaster", "0.1.66")]
 [BepInDependency(Jotunn.Main.ModGuid)]
 [BepInDependency(PlantEasilyCompatibility.Guid, BepInDependency.DependencyFlags.SoftDependency)]
 [BepInIncompatibility("local.valheim.hearthward")]
